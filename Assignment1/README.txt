@@ -1,50 +1,25 @@
-*****************   Project Name   *****************
+*Project Name : Storage Manager
 
+*Member(3)
+-Jingeun Jung(A20437470)
+-Chenen Lee(
+-Zhongqiu Peng(
 
-STORAGE MANAGER
+*Project Goal : to implement a simple storage manager
 
+*How To Run The Script 
 
+1. Open terminal
 
+2. Go to the Project root
 
-*****************   TEAM MEMBERS (GROUP-8)   *****************
+3. Type is to list the files and check that we are in the correct directory(and check files)
 
+4. Run the below command: make
 
-Yawei Zhu (A20448996)
-Priyanka Mutha (A20450968)
-Su-An Liu (A20426753)
+5. Run 'make test' or './test'
 
-
-
-
-*****************   Project Goal   *****************
-
-
-The goal of this assignment is to implement a simple storage manager -
- a module that is capable of reading blocks from a file on disk into memory and writing blocks from memory to a file on disk. 
-The storage manager deals with pages (blocks) of fixed size (PAGE_SIZE). In addition to reading and writing pages from a file, it provides methods for creating, opening, and closing files. The storage manager has to maintain several types of information for an open file: The number of total pages in the file, the current page position (for reading and writing), the file name, and a POSIX file descriptor or FILE pointer. 
-
-
-
-
-
-
-*****************   How To Run The Script   *****************
-
-
-1. Open terminal 
-
-
-2. Go to the path where files are extracted
-
-
-3. Run the below command: make
-
-
-4. To remove object files, run following command: make clean
-
-
-
-
+6. To remove object files, run following command: make clean
 
 
 *****************   FUNCTIONS IMPLEMENTED   *****************
