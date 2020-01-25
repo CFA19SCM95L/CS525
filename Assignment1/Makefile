@@ -10,4 +10,4 @@ clean:
 run: launch
 	./launch
 	
-randclean: run clean
+runandclean: run clean
