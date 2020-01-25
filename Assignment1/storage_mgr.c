@@ -251,7 +251,7 @@ extern RC appendEmptyBlock (SM_FileHandle *fHandle) {
     return RC_OK;
 }
 
-
+/*
 extern RC ensureCapacity (int numberOfPages, SM_FileHandle *fHandle) {
     Database = fopen(fHandle->fileName, "r"); //Check the fHandle and the file itself is void or not
     if(fHandle == NULL || Database == NULL) {
@@ -263,5 +263,21 @@ extern RC ensureCapacity (int numberOfPages, SM_FileHandle *fHandle) {
        printf("Appending empty blocks...\n\n");
        while (fHandle->totalNumPages < numberOfPages) appendEmptyBlock(fHandle) ;
     }
+    return RC_OK;
+}
+*/
+
+
+extern RC ensureCapacity (int numberOfPages, SM_FileHandle *fHandle) {	
+    Database = fopen(fHandle->fileName, "a"); // mode opens the file to append the data at the end of file.
+    
+    if(fHandle == NULL || Database == NULL) {
+       printf("Ensuring the capacity failed.\n\n");
+       return RC_FILE_NOT_FOUND;
+    }else if (fHandle->totalNumPages < numberOfPages) {
+       printf("Adding empty blocks...\n\n");
+       while (numberOfPages > fHandle->totalNumPages) appendEmptyBlock(fHandle) ;
+    }
+    fclose(Database);
     return RC_OK;
 }
