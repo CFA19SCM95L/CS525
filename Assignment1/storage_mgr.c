@@ -145,12 +145,12 @@ extern RC writeBlock (int pageNum, SM_FileHandle *fHandle, SM_PageHandle memPage
     if(pageNum > (*fHandle).totalNumPages|| pageNum < 0) {
         printf("Writing the block failed..\n\n");
         return RC_WRITE_FAILED;
-    } else { Database = fopen((*fHandle).fileName, "r+"); } //Open the file in read/write mode
+    } else { Database = fopen((*fHandle).fileName, "r+"); }
     
     if(fHandle == NULL || Database == NULL || memPage == NULL) { //Check if the values are null in which case block cannot be written in
         printf("Writing the block failed..\n\n");
         fclose(Database);
-        return RC_FILE_NOT_FOUND; //Move a pointer to the beginning of the request page
+        return RC_FILE_NOT_FOUND; 
     } else {
         fseek(Database, pageNum*PAGE_SIZE*sizeof(char),SEEK_SET); //writing in the requested block
         fwrite(memPage, sizeof(char), PAGE_SIZE, Database);
@@ -170,13 +170,13 @@ extern RC writeCurrentBlock (SM_FileHandle *fHandle, SM_PageHandle memPage) {
 
 // The function will add an empty block to the end of the block
 extern RC appendEmptyBlock (SM_FileHandle *fHandle) {
-    SM_PageHandle newPage = (char*)malloc(PAGE_SIZE * sizeof(char)); // Creating an empty page to put into Database
+    SM_PageHandle newPage = (char*)malloc(PAGE_SIZE * sizeof(char));
     int isSeekSuccess = fseek(Database, 0, SEEK_END); //move to end of the file
 		
     if (isSeekSuccess == 0) { //write the new empty block into the file
         fwrite(newPage, sizeof(char), PAGE_SIZE, Database); 
-        free(newPage); //deallocates the previously allocated memory by a call to calloc, malloc, or realloc.
-        (*fHandle).totalNumPages += 1; //update the number of pages
+        free(newPage);
+        (*fHandle).totalNumPages += 1;
         (*fHandle).curPagePos = (*fHandle).totalNumPages; //update the current position
         free(newPage); 			
         printf("Adding an empty block...\n\n");
