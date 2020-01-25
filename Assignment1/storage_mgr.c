@@ -349,7 +349,7 @@ extern RC ensureCapacity (int numberOfPages, SM_FileHandle *fHandle) {
     Database = fopen((*fHandle).fileName, "a");
     
     if(Database == NULL)
-		  return RC_FILE_NOT_FOUND;
+       return RC_FILE_NOT_FOUND;
 		  
     while (numberOfPages > (*fHandle).totalNumPages) appendEmptyBlock(fHandle); Checking if numberOfPages is greater than totalNumPages.then add empty pages until 'numberOfPages'
     
