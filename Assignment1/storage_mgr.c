@@ -43,9 +43,9 @@ extern void initStorageManager() {
 
 extern RC createPageFile (char *fileName) {
     Database = fopen(fileName, "r");  
-
     if(Database != NULL) {
         printf("Failed to write...\n\n");
+        fclose(Database);
         return RC_FILE_NOT_FOUND;
     }
     Database = fopen(fileName, "w+"); //Creates an empty file for writing.
@@ -60,7 +60,6 @@ extern RC createPageFile (char *fileName) {
     fclose(Database);
     free(newPage);
     return RC_OK;
-
 }
 
 
@@ -96,22 +95,21 @@ extern RC openPageFile (char *fileName, SM_FileHandle *fHandle) {
         fHandle->fileName = fileName; //find the file size
         fHandle->curPagePos = fileSize/PAGE_SIZE;
         fseek(Database, 0, SEEK_END); // find the number of pages & move to the end of file
-        fileSize = ftell(Database);
         fHandle->mgmtInfo = Database;
+        fileSize = ftell(Database);
         fHandle->totalNumPages = fileSize % PAGE_SIZE == 0 ? fileSize/PAGE_SIZE : fileSize/PAGE_SIZE + 1;
         fclose(Database);
         return RC_OK;
     }
     return RC_FILE_NOT_FOUND;
-}
+}	
 
-
-	
 
 extern RC closePageFile (SM_FileHandle *fHandle) {
     if(Database != NULL)  Database = NULL;	
     return RC_OK; 
 }
+
 
 extern RC destroyPageFile (char *fileName) {   
     if (fopen(fileName, "r") != NULL) {
