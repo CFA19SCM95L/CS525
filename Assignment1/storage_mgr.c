@@ -12,41 +12,12 @@ extern void initStorageManager() {
     Database = NULL;
 }
 
-// extern RC createPageFile (char *fileName) {
-//     char input;
-//     Database = fopen(fileName, "r");  
-//     if(Database != NULL) {
-//         printf("File exists. Replace it?(y/n)\n");
-//         scanf("%c", &input);
-//       	if (input == 'y') input = 'Y'; // change to uppercase 
-//         fclose(Database);
-//     }
-//     if(input == 'Y' || Database == NULL) {
-//         Database = fopen(fileName, "w+"); //Creates an empty file for writing.
-//         /*
-//          *The initial file size should be one page.
-//          *This method should fill this single page with '\0' bytes.
-//          */
-//         //Writing empty page to file
-//         char *newPage = (char *)malloc(PAGE_SIZE * sizeof(char)); // allocate the newPage into Database
-//         fwrite(newPage, sizeof(char), PAGE_SIZE, Database); // allocate the position
-//         printf("Successed to write...\n\n");
-//         fclose(Database);
-//         free(newPage);
-//         return RC_OK;
-//     } else {
-//         printf("Failed to write...\n\n");
-//         return RC_FILE_NOT_FOUND;
-//     }
-// }
-
 
 extern RC createPageFile (char *fileName) {
     Database = fopen(fileName, "r");  
     if(Database != NULL) {
         printf("Failed to write...\n\n");
         fclose(Database);
-        // return RC_FILE_NOT_FOUND;
     }
     Database = fopen(fileName, "w+"); //Creates an empty file for writing.
     /*
@@ -61,31 +32,6 @@ extern RC createPageFile (char *fileName) {
     free(newPage);
     return RC_OK;
 }
-
-
-// extern RC openPageFile (char *fileName, SM_FileHandle *fHandle) {
-//     Database = fopen(fileName, "r"); // Opening file stream in read mode.
-//     if(Database == NULL) {  // Checking Whether file was successfully opened.
-//         return RC_FILE_NOT_FOUND;
-//     }
-
-//     fHandle->fileName = fileName; //find the file size
-//     int fileSize = ftell(Database);
-//     fHandle->curPagePos = fileSize/PAGE_SIZE;
-//     fseek(Database, 0, SEEK_END); // find the number of pages & move to the end of file
-//     fileSize = ftell(Database);
-//     int numOfPages = fileSize/PAGE_SIZE;
-//     if(fileSize % PAGE_SIZE != 0) {
-//         fHandle->totalNumPages = numOfPages + 1;
-//     } else {
-//         fHandle->totalNumPages = numOfPages;
-//     }
-
-//     fHandle->mgmtInfo = Database;
-//     printf("File opened\n\n");
-//     fclose(Database);
-//     return RC_OK;
-// }
 
 
 extern RC openPageFile (char *fileName, SM_FileHandle *fHandle) {
@@ -118,29 +64,6 @@ RC destroyPageFile(char *fileName) {
 }
 
 
-// extern RC readBlock (int pageNum, SM_FileHandle *fHandle, SM_PageHandle memPage) {
-//     /*The method reads the pageNumth block from a file
-//      *Then stores its content in the memory pointed to by the memPage page handle
-//      */
-//     //Checking whether the pageNum is void or not
-//     if((*fHandle).totalNumPages < pageNum ) {
-//         printf("Failed to read block...\n\n");
-//         return RC_READ_NON_EXISTING_PAGE;
-//     }
-//     Database = fopen((*fHandle).fileName, "r"); //Checking whether the fHandle/memPage is void or not
-//     if(fHandle == NULL || Database == NULL || memPage == NULL) {
-//         fclose(Database);
-//         printf("Failed to read block...\n\n");
-//         return RC_FILE_NOT_FOUND;
-//     }
-//     fseek((*fHandle).mgmtInfo, pageNum*PAGE_SIZE, SEEK_SET); // The pointer is set to position of file stream
-//     fread(memPage, sizeof(char), PAGE_SIZE, (*fHandle).mgmtInfo); //requested block is read
-//     (*fHandle).curPagePos = pageNum; // current page position updated to the page number
-//     fclose(Database);
-//     printf("Successed to Read block...\n\n");
-//     return RC_OK;
-// }
-
 extern RC readBlock (int pageNum, SM_FileHandle *fHandle, SM_PageHandle memPage) {
     /*The method reads the pageNumth block from a file
      *Then stores its content in the memory pointed to by the memPage page handle
@@ -167,17 +90,6 @@ extern RC readBlock (int pageNum, SM_FileHandle *fHandle, SM_PageHandle memPage)
     return RC_OK;
 }
 
-// extern int getBlockPos (SM_FileHandle *fHandle) {  
-//     Database = fopen((*fHandle).fileName, "r");
-//     if(fHandle == NULL || Database == NULL) {   //Check the fHandle and the file itself is void or not
-//         fclose(Database);
-//         printf("Failed to get the block position...\n\n");
-//         return RC_FILE_NOT_FOUND;
-//     }
-//     printf("The current position is: %d ...\n\n", (*fHandle).curPagePos);
-//     fclose(Database);
-//     return (*fHandle).curPagePos; //returning the current page position
-// }
 
 extern int getBlockPos (SM_FileHandle *fHandle) { 
     if(fHandle == NULL || fopen((*fHandle).fileName, "r") == NULL) {   //Check the fHandle and the file itself is void or not
@@ -227,30 +139,6 @@ extern RC readLastBlock (SM_FileHandle *fHandle, SM_PageHandle memPage) {
     return readBlock((*fHandle).totalNumPages, fHandle, memPage);    //the position of last block is set to the value of total pages
 }
 
-/*
-extern RC writeBlock (int pageNum, SM_FileHandle *fHandle, SM_PageHandle memPage) {
-    /* Check the parameter pageNum is lesser than the total number of pages
-     * or is 0 in which case the respective error is returned
-    if(pageNum > fHandle->totalNumPages|| pageNum < 0) {
-        printf("Failed to write the block...\n\n");
-        return RC_READ_NON_EXISTING_PAGE;
-    }
-        
-    Database = fopen(fHandle->fileName, "r+"); //opening the file in reading and writing mode
-    //checking if any of the parameters is null in which case block cannot be written in
-    if(fHandle == NULL || Database == NULL || memPage == NULL) {
-        printf("Failed to write the block...\n\n");
-        fclose(Database);
-        return RC_FILE_NOT_FOUND; //move pointer to the beginning of the request page
-    }
-    fseek(Database, pageNum*PAGE_SIZE*sizeof(char),SEEK_SET); //writing in the requested block
-    fwrite(memPage, sizeof(char), PAGE_SIZE, Database);
-    fHandle->curPagePos = pageNum;
-    fclose(Database);
-    printf("writting page into block...\n\n");
-    return RC_OK;
-}
-*/
 
 extern RC writeBlock (int pageNum, SM_FileHandle *fHandle, SM_PageHandle memPage) {
     // Check 'PageNum' is lesser than(or 0) the total number of pages
@@ -265,11 +153,11 @@ extern RC writeBlock (int pageNum, SM_FileHandle *fHandle, SM_PageHandle memPage
         return RC_FILE_NOT_FOUND; //Move a pointer to the beginning of the request page
     } else {
         fseek(Database, pageNum*PAGE_SIZE*sizeof(char),SEEK_SET); //writing in the requested block
-	fwrite(memPage, sizeof(char), PAGE_SIZE, Database);
-	(*fHandle).curPagePos = pageNum;
-	fclose(Database);
-	printf("Writting page into block...\n\n");
-	return RC_OK;
+        fwrite(memPage, sizeof(char), PAGE_SIZE, Database);
+        (*fHandle).curPagePos = pageNum;
+        fclose(Database);
+        printf("Writting page into block...\n\n");
+        return RC_OK;
     }
 }
 
@@ -279,32 +167,6 @@ extern RC writeCurrentBlock (SM_FileHandle *fHandle, SM_PageHandle memPage) {
     return writeBlock ((*fHandle).curPagePos, fHandle, memPage);
 }
 
-/* The function will add an empty block to the end of the block
- * Increase the number of pages in the file by one.
- * he new last page should be filled with zero bytes.
-extern RC appendEmptyBlock (SM_FileHandle *fHandle) {
-/* Checking whether the fHandle and the file itself is void or not
- * in which case an empty block will not be appended
- * The file stream is opened in reading and writing mode
- * since both functions are to be performed
-    Database = fopen(fHandle->fileName, "r+");
-    if(fHandle == NULL || Database == NULL) {
-        fclose(Database);
-        printf("Failed to append the empty block...\n\n");
-        return RC_FILE_NOT_FOUND;
-    }     
-    SM_PageHandle newPage = (char*)malloc(PAGE_SIZE * sizeof(char)); //adding the newPage into Database
-    fseek(Database, 0, SEEK_END); //move to end of the file
-    fwrite(newPage, sizeof(char), PAGE_SIZE, Database); //write the new empty block
-    fHandle->totalNumPages += 1; //update the number of pages
-    fHandle->curPagePos = fHandle->totalNumPages; //update the current position
-    free(newPage); //deallocates the previously allocated memory by a call to calloc, malloc, or realloc.
-    fclose(Database);
-    printf("Appendeding an empty block...\n\n");
-    return RC_OK;
-}
-
-*/
 
 // The function will add an empty block to the end of the block
 extern RC appendEmptyBlock (SM_FileHandle *fHandle) {
@@ -312,51 +174,28 @@ extern RC appendEmptyBlock (SM_FileHandle *fHandle) {
     int isSeekSuccess = fseek(Database, 0, SEEK_END); //move to end of the file
 		
     if (isSeekSuccess == 0) { //write the new empty block into the file
-	fwrite(newPage, sizeof(char), PAGE_SIZE, Database); 
-	free(newPage); //deallocates the previously allocated memory by a call to calloc, malloc, or realloc.
- 	(*fHandle).totalNumPages += 1; //update the number of pages
-	(*fHandle).curPagePos = (*fHandle).totalNumPages; //update the current position
- 	free(newPage); 			
-  	printf("Adding an empty block...\n\n");
-  	return RC_OK;
+        fwrite(newPage, sizeof(char), PAGE_SIZE, Database); 
+        free(newPage); //deallocates the previously allocated memory by a call to calloc, malloc, or realloc.
+        (*fHandle).totalNumPages += 1; //update the number of pages
+        (*fHandle).curPagePos = (*fHandle).totalNumPages; //update the current position
+        free(newPage); 			
+        printf("Adding an empty block...\n\n");
+        return RC_OK;
     } else {
         free(newPage); 		
         return RC_WRITE_FAILED;
     }	  
 }
 
-/*
-extern RC ensureCapacity (int numberOfPages, SM_FileHandle *fHandle) {
-    Database = fopen(fHandle->fileName, "r"); //Check the fHandle and the file itself is void or not
-    if(fHandle == NULL || Database == NULL) {
-       fclose(Database);
-       printf("Failed to ensure the capacity...\n\n");
-       return RC_FILE_NOT_FOUND;
-    }
-    if (fHandle->totalNumPages < numberOfPages) {
-       printf("Appending empty blocks...\n\n");
-       while (fHandle->totalNumPages < numberOfPages) appendEmptyBlock(fHandle) ;
-    }
-    return RC_OK;
-}
-*/
 
 extern RC ensureCapacity (int numberOfPages, SM_FileHandle *fHandle) {	
     Database = fopen((*fHandle).fileName, "a");
     
     if(Database == NULL)
        return RC_FILE_NOT_FOUND;
-<<<<<<< HEAD
-    } else if ((*fHandle).totalNumPages < numberOfPages) {
-       printf("Adding empty blocks...\n\n");
-       while (numberOfPages > (*fHandle).totalNumPages) appendEmptyBlock(fHandle) ;
-    }
-    fclose(Database);
-=======
 		  
-    while (numberOfPages > (*fHandle).totalNumPages) appendEmptyBlock(fHandle); Checking if numberOfPages is greater than totalNumPages.then add empty pages until 'numberOfPages'
+    while (numberOfPages > (*fHandle).totalNumPages) appendEmptyBlock(fHandle); //Checking if numberOfPages is greater than totalNumPages.then add empty pages until 'numberOfPages'
     
     fclose(Database); 
->>>>>>> ce359cc5f0e44f6d0b1c5a6af20d2904cb32943a
     return RC_OK;
 }
