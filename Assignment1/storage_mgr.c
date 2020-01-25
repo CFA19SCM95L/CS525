@@ -268,13 +268,13 @@ extern RC writeBlock (int pageNum, SM_FileHandle *fHandle, SM_PageHandle memPage
         fclose(Database);
         return RC_FILE_NOT_FOUND; //Move a pointer to the beginning of the request page
     } else {
-			  fseek(Database, pageNum*PAGE_SIZE*sizeof(char),SEEK_SET); //writing in the requested block
-			  fwrite(memPage, sizeof(char), PAGE_SIZE, Database);
-			  (*fHandle).curPagePos = pageNum;
-			  fclose(Database);
-			  printf("Writting page into block...\n\n");
-			  return RC_OK;
-		}
+        fseek(Database, pageNum*PAGE_SIZE*sizeof(char),SEEK_SET); //writing in the requested block
+	fwrite(memPage, sizeof(char), PAGE_SIZE, Database);
+	(*fHandle).curPagePos = pageNum;
+	fclose(Database);
+	printf("Writting page into block...\n\n");
+	return RC_OK;
+    }
 }
 
 //calls the writeBlock() function starting from the current position with the specified file and page handle
@@ -355,7 +355,7 @@ extern RC ensureCapacity (int numberOfPages, SM_FileHandle *fHandle) {
     }else if ((*fHandle).totalNumPages < numberOfPages) {
        printf("Adding empty blocks...\n\n");
        while (numberOfPages > (*fHandle).totalNumPages) appendEmptyBlock(fHandle) ;
+       fclose(Database);
+       return RC_OK;
     }
-    fclose(Database);
-    return RC_OK;
 }
