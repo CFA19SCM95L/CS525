@@ -1,13 +1,15 @@
+===========================================================================
 *Project Name : Storage Manager
-
-*Member(3)
--Jingeun Jung(A20437470)
--Chenen Lee(
--Zhongqiu Peng(
-
 *Project Goal : to implement a simple storage manager
+*Member(3)
+-Chenen Lee(
+-Jingeun Jung(A20437470)
+-Zhongqiu Peng(
+===========================================================================
 
+======================
 *How To Run The Script 
+======================
 
 1. Open terminal
 
@@ -22,11 +24,13 @@
 6. To remove object files, run following command: make clean
 
 
-*****************   FUNCTIONS IMPLEMENTED   *****************
+=====================
+FUNCTIONS IMPLEMENTED 
+=====================
 
 
-1. initStorageManager()
-        A function to initiate the storage manager
+1. initStorageManager() : This function initiates the storage manager
+
 
 
 Functions for manipulating page files:
