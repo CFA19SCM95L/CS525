@@ -346,15 +346,13 @@ extern RC ensureCapacity (int numberOfPages, SM_FileHandle *fHandle) {
 */
 
 extern RC ensureCapacity (int numberOfPages, SM_FileHandle *fHandle) {	
-    Database = fopen((*fHandle).fileName, "a"); // mode opens the file to append the data at the end of file.
+    Database = fopen((*fHandle).fileName, "a");
     
-    if(fHandle == NULL || Database == NULL) {
-       printf("Ensuring the capacity failed.\n\n");
-       return RC_FILE_NOT_FOUND;
-    }else if ((*fHandle).totalNumPages < numberOfPages) {
-       printf("Adding empty blocks...\n\n");
-       while (numberOfPages > (*fHandle).totalNumPages) appendEmptyBlock(fHandle) ;
-       fclose(Database);
-       return RC_OK;
-    }
+    if(Database == NULL)
+		  return RC_FILE_NOT_FOUND;
+		  
+    while (numberOfPages > (*fHandle).totalNumPages) appendEmptyBlock(fHandle); Checking if numberOfPages is greater than totalNumPages.then add empty pages until 'numberOfPages'
+    
+    fclose(Database); 
+    return RC_OK;
 }
