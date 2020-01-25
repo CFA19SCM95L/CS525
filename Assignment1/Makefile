@@ -1,4 +1,4 @@
-/*Compiler:= gcc
+Compiler:= gcc
 
 Source := dberror.c storage_mgr.c test_assign1_1.c
 Object := dberror.o storage_mgr.o test_assign1_1.o
@@ -14,17 +14,16 @@ run: code_assignment1
 
 clean:
 	rm -rf test_assign1_1 *.o
-*/
 
 
-CC = gcc
-CFLAGS  = -g -Wall 
+# CC = gcc
+# CFLAGS  = -g -Wall 
 
-test: test_assign1_1.o storage_mgr.o dberror.o 
-	$(CC) $(CFLAGS) -o test test_assign1_1.o storage_mgr.o dberror.o -lm
+# test: test_assign1_1.o storage_mgr.o dberror.o 
+# 	$(CC) $(CFLAGS) -o test test_assign1_1.o storage_mgr.o dberror.o -lm
 
-clean: 
-	$(RM) test *.o *~
+# clean: 
+# 	$(RM) test *.o *~
 
-run_test:
-	./test
+# run_test:
+# 	./test
