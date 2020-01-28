@@ -16,7 +16,7 @@ Run:
 
 
 
-
+//////////////////////////part1/////////////////
 Functions:
 1. initStorageManager() : Initiates the storage manager
 
@@ -26,10 +26,8 @@ Manipulating page files:
 
 
 2. createPageFile (char *fileName)
-        Creates a file with a specified name. If it already exists, it allows you to either overwrite it or leave it as it is. File stream is initially opened in read mode.
-        If the user chooses to overwrite the file, or if the a file with the specified name does not exist, the file stream is opened in write mode
+		overwrite the file is existed , or if the file does not exist, the file stream is opened in write mode
         and a new page is allocated.
-        If the user chooses not to overwrite the file, the file stream is closed.
 
 
 3. openPageFile (char *fileName, SM_FileHandle *fHandle)
@@ -51,6 +49,7 @@ Manipulating page files:
         If remove() is successful, then the page is deleted, RC_OK is returned.
 
 
+/////////////////////////part2/////////////////
 Reading blocks from disk:
 
 
@@ -92,6 +91,7 @@ Reading blocks from disk:
             The function readBlock() is implemented from the new block position (lastpos), and the specified file and page handle.
 
 
+//////////////part3///////////////////
 Writing blocks:
 
 
