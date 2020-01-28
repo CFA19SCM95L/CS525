@@ -26,27 +26,22 @@ Manipulating page files:
 
 
 2. createPageFile (char *fileName)
-		overwrite the file is existed , or if the file does not exist, the file stream is opened in write mode
+        Overwrite the file is existed , or if the file does not exist, the file stream is opened in write mode
         and a new page is allocated.
 
 
 3. openPageFile (char *fileName, SM_FileHandle *fHandle)
-        File is opened in read mode. The fields of the file handle are updated with the nformation about the opened file; fields like fileSize and numOfPages. RC_OK is returned.
-        If the file does not exist, the file is closed and RC_FILE_NOT-FOUND is returned.
+        Updated with the information about the opened file. 
+        Return RC_OK if succeeded else return RC_FILE_NOTFOUND and closed it.
 
 
 4. closePageFile (SM_FileHandle *fHandle)
-        First, it is checked whether the file handle is void or not. 
-        If it is, error RC_FILE_NOT_FOUND is returned.
-        If it is not void, file is closed using fclose();
+        Closed the file by setting it to null and return RC_OK.
 
 
 5. destroyPageFile (char *fileName)
-        First, it is checked whether fileName is void or not.
-        If it is, then error RC_FILE_NOT_FOUND is returned.
-        If it is not, then remove() is implemented, which returns value when succeeded.
-        If remove() is not successful, RC_FILE_NOT_FOUND is returned.
-        If remove() is successful, then the page is deleted, RC_OK is returned.
+        Checked whether fileName is there. If it is, return RC_FILE_NOT_FOUND else remove(fileName) and return RC_OK
+
 
 
 /////////////////////////part2/////////////////
@@ -94,14 +89,6 @@ Reading blocks from disk:
 //////////////part3///////////////////
 Writing blocks:
 
-//13. writeBlock (int pageNum, SM_FileHandle *fHandle, SM_PageHandle memPage)
-//        First, we check the validity of the parameter pageNum. the page number should be greater than 0, and less than the total no. of pages.
-//        If either of the above conditions are true, RC_READ_NON_EXISTING_PAGE is returned.
-//        The file is opened in read and write mode, since both operations are to be performed.
-//        Then, it is checked whether the fHAndle, myFile(the file itself), or memPage is null.
-//        If any of the above are null, RC_FILE_NOT_FOUND is returned.
-//        If everything is valid, the block can be written.
-//        Pointer is moved to the position where the writing is to be started. The block is wrtten using fwrite() and RC_OK is returned.
 
 13. writeBlock (int pageNum, SM_FileHandle *fHandle, SM_PageHandle memPage)
 	We check see if the page number is valid. 
@@ -113,24 +100,12 @@ Writing blocks:
  	 - Using fwrite() function, we Write the data to the appropriate location
 	 - Store into the memPage passed in the paramter.
 
-
-//14. writeCurrentBlock (SM_FileHandle *fHandle, SM_PageHandle memPage)
-//        The functions writes a page to disk using the current position
-//        The writeBlock() function is called, starting from the current position with the specified file and page handle
 	
 14. writeCurrentBlock (SM_FileHandle *fHandle, SM_PageHandle memPage)
 	Write a page to disk as using the current position
 	call writeBlock() function with pageNum = current page position as the paramter.
 
-//15. appendEmptyBlock (SM_FileHandle *fHandle)
-//        The function will add an empty block to the end of the block. Increases the number of pages in the file by one.
-//        The new last page should be filled with zero bytes.
-//        Checking whether the fHandle and the file itself is void or not in which case an empty block will not be appended. //RC_FILE_NOT_FOUND is returned.
-//        A new page is created.
-//        Pointer is moved to the end if the file.
-//        The empty block is written.
-//        Total no. of pages and current position is updated.
-//        Page is deallocated using free(); 
+
 	
 15. appendEmptyBlock (SM_FileHandle *fHandle)
 	Create an empty block(size = Page_Size)
@@ -139,10 +114,6 @@ Writing blocks:
         Total number of pages and current position is updated.
 	If an empty block will not be appended(failed) RC_FILE_NOT_FOUNDED is returned.
 	
-//16. ensureCapacity (int numberOfPages, SM_FileHandle *fHandle)
-//        First, we check whether the fHandle and the file itself is void or not.
-//        If it void, RC_FILE_NOT_FOUND is returned.
-//        If totalNumPages < numberOfPages, appendEmptyBlock() is called. RC_OK is returned.
 
 16. ensureCapacity (int numberOfPages, SM_FileHandle *fHandle)
 	If Database is NULL, RC_FILE_NOT_FOUND is returned.
