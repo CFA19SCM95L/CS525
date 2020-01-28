@@ -94,34 +94,57 @@ Reading blocks from disk:
 //////////////part3///////////////////
 Writing blocks:
 
+//13. writeBlock (int pageNum, SM_FileHandle *fHandle, SM_PageHandle memPage)
+//        First, we check the validity of the parameter pageNum. the page number should be greater than 0, and less than the total no. of pages.
+//        If either of the above conditions are true, RC_READ_NON_EXISTING_PAGE is returned.
+//        The file is opened in read and write mode, since both operations are to be performed.
+//        Then, it is checked whether the fHAndle, myFile(the file itself), or memPage is null.
+//        If any of the above are null, RC_FILE_NOT_FOUND is returned.
+//        If everything is valid, the block can be written.
+//        Pointer is moved to the position where the writing is to be started. The block is wrtten using fwrite() and RC_OK is returned.
 
 13. writeBlock (int pageNum, SM_FileHandle *fHandle, SM_PageHandle memPage)
-        First, we check the validity of the parameter pageNum. the page number should be greater than 0, and less than the total no. of pages.
-        If either of the above conditions are true, RC_READ_NON_EXISTING_PAGE is returned.
-        The file is opened in read and write mode, since both operations are to be performed.
-        Then, it is checked whether the fHAndle, myFile(the file itself), or memPage is null.
-        If any of the above are null, RC_FILE_NOT_FOUND is returned.
-        If everything is valid, the block can be written.
-        Pointer is moved to the position where the writing is to be started. The block is wrtten using fwrite() and RC_OK is returned.
+	We check see if the page number is valid. 
+	Page number should be greater than 0 and less than total number of pages.
+	If any of the above are null RC_FILE_NOT_FOUND is returned.
+	See if the pointer to the page file is available
+	Using the valid file pointer we explore to the given location using fseek()
+	If fseek() is successful
+ 	 - Using fwrite() function, we Write the data to the appropriate location
+	 - Store into the memPage passed in the paramter.
 
 
+//14. writeCurrentBlock (SM_FileHandle *fHandle, SM_PageHandle memPage)
+//        The functions writes a page to disk using the current position
+//        The writeBlock() function is called, starting from the current position with the specified file and page handle
+	
 14. writeCurrentBlock (SM_FileHandle *fHandle, SM_PageHandle memPage)
-        The functions writes a page to disk using the current position
-        The writeBlock() function is called, starting from the current position with the specified file and page handle
+	Write a page to disk as using the current position
+	call writeBlock() function with pageNum = current page position as the paramter.
 
-
+//15. appendEmptyBlock (SM_FileHandle *fHandle)
+//        The function will add an empty block to the end of the block. Increases the number of pages in the file by one.
+//        The new last page should be filled with zero bytes.
+//        Checking whether the fHandle and the file itself is void or not in which case an empty block will not be appended. //RC_FILE_NOT_FOUND is returned.
+//        A new page is created.
+//        Pointer is moved to the end if the file.
+//        The empty block is written.
+//        Total no. of pages and current position is updated.
+//        Page is deallocated using free(); 
+	
 15. appendEmptyBlock (SM_FileHandle *fHandle)
-        The function will add an empty block to the end of the block. Increases the number of pages in the file by one.
-        The new last page should be filled with zero bytes.
-        Checking whether the fHandle and the file itself is void or not in which case an empty block will not be appended. RC_FILE_NOT_FOUND is returned.
-        A new page is created.
-        Pointer is moved to the end if the file.
-        The empty block is written.
-        Total no. of pages and current position is updated.
-        Page is deallocated using free(); 
-
+	Create an empty block(size = Page_Size)
+	Move the cursor(pointer) of the file stream to the last page.
+	Write Empty block data and update Total number of empty blocks.(The new last page filled with zero bytes.)
+        Total number of pages and current position is updated.
+	If an empty block will not be appended(failed) RC_FILE_NOT_FOUNDED is returned.
+	
+//16. ensureCapacity (int numberOfPages, SM_FileHandle *fHandle)
+//        First, we check whether the fHandle and the file itself is void or not.
+//        If it void, RC_FILE_NOT_FOUND is returned.
+//        If totalNumPages < numberOfPages, appendEmptyBlock() is called. RC_OK is returned.
 
 16. ensureCapacity (int numberOfPages, SM_FileHandle *fHandle)
-        First, we check whether the fHandle and the file itself is void or not.
-        If it void, RC_FILE_NOT_FOUND is returned.
-        If totalNumPages < numberOfPages, appendEmptyBlock() is called. RC_OK is returned.
+	If Database is NULL, RC_FILE_NOT_FOUND is returned.
+	Check required number of pages is whether greater than the total number of pages.
+	If totalNumPages < numberOfPages, Empty blocks are added using appendEmptyBlock function
