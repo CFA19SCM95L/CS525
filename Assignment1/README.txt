@@ -67,7 +67,7 @@ Reading blocks from disk:
 
 
 9. readPreviousBlock (SM_FileHandle *fHandle, SM_PageHandle memPage)
-        The position of the block to be read is one less than the current position.
+        The number of the position of the block to be read is 1 smaller than the number of the current position.
         The function readBlock() is implemented from the new block position (newpos), and the specified file and page handle.
 
 
