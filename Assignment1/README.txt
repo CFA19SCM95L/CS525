@@ -49,41 +49,41 @@ Reading blocks from disk:
 
 
 6. readBlock (int pageNum, SM_FileHandle *fHandle, SM_PageHandle memPage)
-        First, we check the validity of the page number, which should be greater than 0 and less than total no. of pages.
-        If any of the above cases is true, page number is invalid and RC_READ_NON_EXISTING_PAGE is returned
-        Also, if fHandle, myFile or memPage are void (do not exist) then RC_FILE_NOT_FOUND is returned.
-        If the page number is valid, then the block can be read.
-        The position is found, pointer is set to the position and the block is read by fread(), current page position is updated after the read. RC_OK is returned.
+        Firstly, we should ensure that the pageNum is valid, that means the number should be in range of 0 and the number of all the pages.
+        If page number isn't valid then RC_READ_NON_EXISTING_PAGE is returned.
+        RC_FILE_NOT_FOUND will also be returned in other cases like one of Database, fHandle or memPage is not valid.
+        As long as the page number is valid then the block can be read.
+        Position found, pointer set here and the block is read, current page position updated after the read. RC_OK returned.
 
 
 7. getBlockPos (SM_FileHandle *fHandle)
-        First, we check whether the file handle or the file itself is void or not.
-        If either is void, RC_FILE_NOT_FOUND is returned.
-        If they are not void, the current page position is returned.
+        firstly, check if fHandle and the file are valid.
+        return RC_FILE_NOT_FOUND if one of them is void.
+        return the current page position they are both valid.
 
 
 8. readFirstBlock (SM_FileHandle *fHandle, SM_PageHandle memPage)
-        Implements readBlock() with pagenum=0, and the specified file and page handle.
+        Set pageNum=0 and implements readBlock(), specified file and page handle.
 
 
 9. readPreviousBlock (SM_FileHandle *fHandle, SM_PageHandle memPage)
         The position of the block to be read is one less than the current position.
-            The function readBlock() is implemented from the new block position (newpos), and the specified file and page handle.
+        The function readBlock() is implemented from the new block position (newpos), and the specified file and page handle.
 
 
 10. readCurrentBlock (SM_FileHandle *fHandle, SM_PageHandle memPage)
         The position of the current position is set to curPagePos.
-           The function readBlock() is implemented from the new block position (curpos), and the specified file and page handle.
+        The function readBlock() is implemented from the new block position (curpos), and the specified file and page handle.
 
 
 11. readNextBlock (SM_FileHandle *fHandle, SM_PageHandle memPage)
         The position of the new block is one more than the current position.
-            The function readBlock() is implemented from the new block position (nextpos), and the specified file and page handle.
+        The function readBlock() is implemented from the new block position (nextpos), and the specified file and page handle.
 
 
 12. readLastBlock (SM_FileHandle *fHandle, SM_PageHandle memPage)
         The position of the last block is set to the value of total pages.
-            The function readBlock() is implemented from the new block position (lastpos), and the specified file and page handle.
+        The function readBlock() is implemented from the new block position (lastpos), and the specified file and page handle.
 
 
 //////////////part3///////////////////
