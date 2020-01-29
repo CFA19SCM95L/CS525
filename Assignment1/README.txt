@@ -1,7 +1,7 @@
 Project Name : Storage Manager
 -Chenen Lee(A20435685()
 -Jingeun Jung(A20437470)
--Zhongqiu Peng(
+-Zhongqiu Peng(A20427765)
 
 
 Run:
