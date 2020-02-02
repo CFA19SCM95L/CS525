@@ -16,7 +16,6 @@ Run:
 
 
 
-//////////////////////////part1/////////////////
 Functions:
 1. initStorageManager() : Initiates the storage manager
 
@@ -44,7 +43,6 @@ Manipulating page files:
 
 
 
-/////////////////////////part2/////////////////
 Reading blocks from disk:
 
 
@@ -86,7 +84,6 @@ Reading blocks from disk:
         The function readBlock() is implemented from the new block position (lastpos), and the specified file and page handle.
 
 
-//////////////part3///////////////////
 Writing blocks:
 
 
