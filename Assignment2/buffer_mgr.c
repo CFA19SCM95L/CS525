@@ -1,3 +1,7 @@
+/**
+ * Wrong! The structure of them are totoally different.
+*/
+
 #include "stdio.h"
 #include "stdlib.h"
 #include "buffer_mgr.h"
