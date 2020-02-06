@@ -1,5 +1,3 @@
-# 123124324
-
 Compiler = gcc
 CFlags  = -g -Wall
  
