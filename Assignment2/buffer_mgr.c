@@ -217,14 +217,27 @@ RC forceFlushPool(BM_BufferPool *const bm){
     return RC_OK;
 }
 
-
 //we can use this method to fresh the page's strategy.
+//RC freshStrategy(BM_BufferPool *bm, BM_PageHandle *pageHandle) {
+//    if (pageHandle->strategyRecords == NULL) {
+//        if ((*bm).strategy == RS_FIFO || (*bm).strategy == RS_LRU) {
+//            pageHandle->strategyRecords = calloc(1, sizeof(int));
+//        }
+//    }
+//
+//    if ((*bm).strategy == RS_FIFO || (*bm).strategy == RS_LRU) {
+//        int *sNum;
+//        sNum = (int *)pageHandle->strategyRecords;
+//        *sNum = ((*bm).count);
+//        ((*bm).count)++;
+//        return RC_OK;
+//    }
+//    return RC_BUFFER_ERROR;
+//}
+
 RC freshStrategy(BM_BufferPool *bm, BM_PageHandle *pageHandle) {
-    if (pageHandle->strategyRecords == NULL) {
-        if ((*bm).strategy == RS_FIFO || (*bm).strategy == RS_LRU) {
-            pageHandle->strategyRecords = calloc(1, sizeof(int));
-        }
-    }
+    if (pageHandle->strategyRecords == NULL)
+        if ((*bm).strategy == RS_FIFO || (*bm).strategy == RS_LRU) pageHandle->strategyRecords = calloc(1, sizeof(int));
 
     if ((*bm).strategy == RS_FIFO || (*bm).strategy == RS_LRU) {
         int *sNum;
@@ -266,6 +279,7 @@ int FIFOandLRU(BM_BufferPool *bm) {
     }
     return evictPageNum;
 }
+
 //Page Management Functions
 /*
  * pinPage pins the page with page number pageNum.
@@ -386,10 +400,8 @@ RC pinPage (BM_BufferPool *const bm, BM_PageHandle *const page,
 RC unpinPage (BM_BufferPool *const bm, BM_PageHandle *const page)
 {
     for(int i = 0; i < (*bm).numPages; i++) {
-    {
         BM_PageHandle *curPage = ((*bm).mgmtData + i);
-        if ((*curPage).pageNum == page->pageNum)
-        {
+        if ((*curPage).pageNum == page->pageNum) {
             (*curPage).fixCounts--;
             break;
         }
@@ -425,10 +437,8 @@ RC unpinPage (BM_BufferPool *const bm, BM_PageHandle *const page)
 RC markDirty (BM_BufferPool *const bm, BM_PageHandle *const page)
 {
     for(int i = 0; i < (*bm).numPages; i++) {
-    {
         BM_PageHandle *curPage = ((*bm).mgmtData + i);
-        if ((*curPage).pageNum == page->pageNum)
-        {
+        if ((*curPage).pageNum == page->pageNum) {
             (*curPage).dirty = 1;
             page->dirty = 1;
             break;
