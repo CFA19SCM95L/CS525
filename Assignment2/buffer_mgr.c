@@ -389,12 +389,10 @@ RC pinPage (BM_BufferPool *const bm, BM_PageHandle *const page,
 
 //unpinPage unpins the page page.
 //The pageNum field of page should be used to figure out which page to unpin.
-RC unpinPage (BM_BufferPool *const bm, BM_PageHandle *const page)
-{
+RC unpinPage (BM_BufferPool *const bm, BM_PageHandle *const page) {
     for(int i = 0; i < (*bm).numPages; i++) {
-        BM_PageHandle *curPage = ((*bm).mgmtData + i);
-        if ((*curPage).pageNum == page->pageNum) {
-            (*curPage).fixCounts--;
+        if ((*((*bm).mgmtData + i)).pageNum == (*page).pageNum) {
+            (*((*bm).mgmtData + i)).fixCounts--;
             break;
         }
     }
@@ -426,13 +424,11 @@ RC unpinPage (BM_BufferPool *const bm, BM_PageHandle *const page)
 //}
 
 //markDirty marks a page as dirty.
-RC markDirty (BM_BufferPool *const bm, BM_PageHandle *const page)
-{
+RC markDirty (BM_BufferPool *const bm, BM_PageHandle *const page) {
     for(int i = 0; i < (*bm).numPages; i++) {
-        BM_PageHandle *curPage = ((*bm).mgmtData + i);
-        if ((*curPage).pageNum == page->pageNum) {
-            (*curPage).dirty = 1;
-            page->dirty = 1;
+        if ((*((*bm).mgmtData + i)).pageNum == (*page).pageNum) {
+            (*((*bm).mgmtData + i)).dirty = 1;
+            (*page).dirty = 1;
             break;
         }
     }
@@ -466,20 +462,18 @@ RC markDirty (BM_BufferPool *const bm, BM_PageHandle *const page)
 //}
 
 //forcePage should write the current content of the page back to the page file on disk.
-RC forcePage (BM_BufferPool *const bm, BM_PageHandle *const page)
-{
+RC forcePage (BM_BufferPool *const bm, BM_PageHandle *const page) {
     FILE *curFile = fopen((*bm).pageFile, "rb+");
-    int pageNum = page->pageNum;
+    int pageNum = (*page).pageNum;
     fseek(curFile, pageNum*PAGE_SIZE, SEEK_SET);
-    fwrite(page->data, PAGE_SIZE, 1, curFile);
+    fwrite((*page).data, PAGE_SIZE, 1, curFile);
     ((*bm).writeNum)++;
     fclose(curFile);
 
     for(int i = 0; i < (*bm).numPages; i++) {
-        BM_PageHandle *curPage = ((*bm).mgmtData + i);
-        if ((*curPage).pageNum == pageNum) (*curPage).dirty = 0;
+        if ((*((*bm).mgmtData + i)).pageNum == pageNum) (*((*bm).mgmtData + i)).dirty = 0;
     }
-    page->dirty = 0;
+    (*page).dirty = 0;
     printf("Current content of the page written back to the disk successfully.\n");
     return RC_OK;
 }
@@ -505,11 +499,9 @@ RC forcePage (BM_BufferPool *const bm, BM_PageHandle *const page)
 /*The getFrameContents function returns an array of PageNumbers
 where the ith element is the number of the page stored in the ith page frame.*/
 PageNumber *getFrameContents (BM_BufferPool *const bm) {
-    BM_PageHandle *frame = (*bm).mgmtData;
     PageNumber *frameContents = (PageNumber*)malloc(sizeof(PageNumber) * ((*bm).numPages));
-
     for(int i = 0; i < (*bm).numPages; i++)
-        if ((frame + i)->data != NULL) frameContents[i] = (frame + i)->pageNum;
+        if (((*bm).mgmtData + i)->data != NULL) frameContents[i] = (*((*bm).mgmtData + i)).pageNum;
         else frameContents[i] = NO_PAGE;
     return frameContents;
 }
@@ -532,9 +524,7 @@ PageNumber *getFrameContents (BM_BufferPool *const bm) {
 where the ith element is TRUE if the page stored in the ith page frame is dirty. */
 bool *getDirtyFlags (BM_BufferPool *const bm) {
     bool *dirtyFlags = malloc(sizeof(bool) * ((*bm).numPages));
-    BM_PageHandle *frame= (*bm).mgmtData;
-
-    for(int i = 0; i < (*bm).numPages; i++) dirtyFlags[i] = (frame + i)->dirty;
+    for(int i = 0; i < (*bm).numPages; i++) dirtyFlags[i] = (*((*bm).mgmtData + i)).dirty;
     return dirtyFlags;
 }
 
@@ -560,9 +550,8 @@ bool *getDirtyFlags (BM_BufferPool *const bm) {
 
 int *getFixCounts (BM_BufferPool *const bm) {
     int *fixCounts = malloc(sizeof(int) * ((*bm).numPages));
-    BM_PageHandle *frame = (*bm).mgmtData;
+    for(int i = 0; i < (*bm).numPages; i++) fixCounts[i] = (*((*bm).mgmtData + i)).fixCounts;
 
-    for(int i = 0; i < (*bm).numPages; i++) fixCounts[i] = (frame + i)->fixCounts;
     return fixCounts;
 }
 
