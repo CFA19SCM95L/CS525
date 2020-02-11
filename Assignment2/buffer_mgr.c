@@ -359,18 +359,35 @@ RC pinPage (BM_BufferPool *const bm, BM_PageHandle *const page,
 
 
 
+////unpinPage unpins the page page.
+////The pageNum field of page should be used to figure out which page to unpin.
+//RC unpinPage (BM_BufferPool *const bm, BM_PageHandle *const page)
+//{
+//    // if(bm == NULL || page == NULL){
+//    //     printf("The buffer pool is illegal.");
+//    //     return RC_READ_NON_EXISTING_BUFFERPOOL;
+//    // }
+//
+//    for (int check = 0; check < (*bm).numPages; check++)
+//    {
+//        BM_PageHandle *curPage = ((*bm).mgmtData + check);
+//        if ((*curPage).pageNum == page->pageNum)
+//        {
+//            (*curPage).fixCounts--;
+//            break;
+//        }
+//    }
+//    printf("The Page has been unpinned.\n");
+//    return RC_OK;
+//}
+
 //unpinPage unpins the page page.
 //The pageNum field of page should be used to figure out which page to unpin.
 RC unpinPage (BM_BufferPool *const bm, BM_PageHandle *const page)
 {
-    // if(bm == NULL || page == NULL){
-    //     printf("The buffer pool is illegal.");
-    //     return RC_READ_NON_EXISTING_BUFFERPOOL;
-    // }
-
-    for (int check = 0; check < (*bm).numPages; check++)
+    for(int i = 0; i < (*bm).numPages; i++) {
     {
-        BM_PageHandle *curPage = ((*bm).mgmtData + check);
+        BM_PageHandle *curPage = ((*bm).mgmtData + i);
         if ((*curPage).pageNum == page->pageNum)
         {
             (*curPage).fixCounts--;
@@ -381,18 +398,35 @@ RC unpinPage (BM_BufferPool *const bm, BM_PageHandle *const page)
     return RC_OK;
 }
 
+////markDirty marks a page as dirty.
+//RC markDirty (BM_BufferPool *const bm, BM_PageHandle *const page)
+//{
+//    // if(bm == NULL || page == NULL){
+//    //     printf("The buffer pool is illegal.");
+//    //     return RC_READ_NON_EXISTING_BUFFERPOOL;
+//    // }
+//
+//    int check;
+//    for (check = 0; check < ((*bm).numPages); check++)
+//    {
+//        BM_PageHandle *curPage = ((*bm).mgmtData + check);
+//        if ((*curPage).pageNum == page->pageNum)
+//        {
+//            (*curPage).dirty = 1;
+//            page->dirty = 1;
+//            break;
+//       }
+//    }
+//    printf("The dirty page has been marked.\n");
+//    return RC_OK;
+//}
+
 //markDirty marks a page as dirty.
 RC markDirty (BM_BufferPool *const bm, BM_PageHandle *const page)
 {
-    // if(bm == NULL || page == NULL){
-    //     printf("The buffer pool is illegal.");
-    //     return RC_READ_NON_EXISTING_BUFFERPOOL;
-    // }
-
-    int check;
-    for (check = 0; check < ((*bm).numPages); check++)
+    for(int i = 0; i < (*bm).numPages; i++) {
     {
-        BM_PageHandle *curPage = ((*bm).mgmtData + check);
+        BM_PageHandle *curPage = ((*bm).mgmtData + i);
         if ((*curPage).pageNum == page->pageNum)
         {
             (*curPage).dirty = 1;
