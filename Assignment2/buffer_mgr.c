@@ -404,6 +404,31 @@ RC markDirty (BM_BufferPool *const bm, BM_PageHandle *const page)
     return RC_OK;
 }
 
+////forcePage should write the current content of the page back to the page file on disk.
+//RC forcePage (BM_BufferPool *const bm, BM_PageHandle *const page)
+//{
+//    FILE *curFile = fopen((*bm).pageFile, "rb+");
+//    int pageNum = page->pageNum;
+//    fseek(curFile, pageNum*PAGE_SIZE, SEEK_SET);
+//    fwrite(page->data, PAGE_SIZE, 1, curFile);
+//    ((*bm).writeNum)++;
+//    fclose(curFile);
+//
+//    int check;
+//    for (check = 0; check < ((*bm).numPages); check++)
+//    {
+//        BM_PageHandle *curPage = ((*bm).mgmtData + check);
+//        if ((*curPage).pageNum == pageNum)
+//        {
+//            (*curPage).dirty = 0;
+//            break;
+//        }
+//    }
+//    page->dirty = 0;
+//    printf("Current content of the page written back to the disk successfully.\n");
+//    return RC_OK;
+//}
+
 //forcePage should write the current content of the page back to the page file on disk.
 RC forcePage (BM_BufferPool *const bm, BM_PageHandle *const page)
 {
@@ -414,69 +439,97 @@ RC forcePage (BM_BufferPool *const bm, BM_PageHandle *const page)
     ((*bm).writeNum)++;
     fclose(curFile);
 
-    int check;
-    for (check = 0; check < ((*bm).numPages); check++)
-    {
-        BM_PageHandle *curPage = ((*bm).mgmtData + check);
-        if ((*curPage).pageNum == pageNum)
-        {
-            (*curPage).dirty = 0;
-            break;
-        }
+    for(int i = 0; i < (*bm).numPages; i++) {
+        BM_PageHandle *curPage = ((*bm).mgmtData + i);
+        if ((*curPage).pageNum == pageNum) (*curPage).dirty = 0;
     }
     page->dirty = 0;
     printf("Current content of the page written back to the disk successfully.\n");
     return RC_OK;
 }
 
+///*The getFrameContents function returns an array of PageNumbers
+//where the ith element is the number of the page stored in the ith page frame.*/
+//PageNumber *getFrameContents (BM_BufferPool *const bm) {
+//    BM_PageHandle *frame = (*bm).mgmtData;
+//    PageNumber *frameContents = (PageNumber*)malloc(sizeof(PageNumber)
+//                                                    * ((*bm).numPages));
+//    int i = 0;
+//    while(i < (*bm).numPages) {
+//        if ((frame + i)->data != NULL) {
+//            frameContents[i] = (frame + i)->pageNum;
+//        } else {
+//            frameContents[i] = NO_PAGE;
+//        }
+//        i++;
+//    }
+//    return frameContents;
+//}
+
 /*The getFrameContents function returns an array of PageNumbers
 where the ith element is the number of the page stored in the ith page frame.*/
 PageNumber *getFrameContents (BM_BufferPool *const bm) {
     BM_PageHandle *frame = (*bm).mgmtData;
-    PageNumber *frameContents = (PageNumber*)malloc(sizeof(PageNumber)
-                                                    * ((*bm).numPages));
-    int i = 0;
-    while(i < (*bm).numPages) {
-        if ((frame + i)->data != NULL) {
-            frameContents[i] = (frame + i)->pageNum;
-        } else {
-            frameContents[i] = NO_PAGE;
-        }
-        i++;
-    }
+    PageNumber *frameContents = (PageNumber*)malloc(sizeof(PageNumber) * ((*bm).numPages));
+
+    for(int i = 0; i < (*bm).numPages; i++)
+        if ((frame + i)->data != NULL) frameContents[i] = (frame + i)->pageNum;
+        else frameContents[i] = NO_PAGE;
     return frameContents;
 }
+
+///*The getDirtyFlags function returns an array of bools (of size numPages)
+//where the ith element is TRUE if the page stored in the ith page frame is dirty. */
+//bool *getDirtyFlags (BM_BufferPool *const bm) {
+//    BM_PageHandle *frame= (*bm).mgmtData;
+//    bool *dirtyFlags = malloc(sizeof(bool) * ((*bm).numPages));
+//    int i = 0;
+
+//    while(i < (*bm).numPages) {
+//        dirtyFlags[i] = (frame + i)->dirty;
+//        i++;
+//    }
+//    return dirtyFlags;
+//}
+
 /*The getDirtyFlags function returns an array of bools (of size numPages)
 where the ith element is TRUE if the page stored in the ith page frame is dirty. */
 bool *getDirtyFlags (BM_BufferPool *const bm) {
-    BM_PageHandle *frame= (*bm).mgmtData;
     bool *dirtyFlags = malloc(sizeof(bool) * ((*bm).numPages));
-    int i = 0;
+    BM_PageHandle *frame= (*bm).mgmtData;
 
-    while(i < (*bm).numPages) {
-        dirtyFlags[i] = (frame + i)->dirty;
-        i++;
-    }
+    for(int i = 0; i < (*bm).numPages; i++) dirtyFlags[i] = (frame + i)->dirty;
     return dirtyFlags;
 }
-/*The getFixCounts function returns an array of ints (of size numPages)
- *where the ith element is the fix count of the page stored
- *in the ith page frame. Return 0 for empty page frames.*/
-int *getFixCounts (BM_BufferPool *const bm) {
-    // if(bm == NULL){
-    //     printf("The buffer pool is illegal.");
-    //     return RC_READ_NON_EXISTING_BUFFERPOOL;
-    // }
-    BM_PageHandle *frame = (*bm).mgmtData;
-    int *fixCounts = malloc(sizeof(int) * ((*bm).numPages));
 
-    int i = 0;
-    while(i < (*bm).numPages) {
-        fixCounts[i] = (frame + i)->fixCounts;
-        i++;
-    }
+
+///*The getFixCounts function returns an array of ints (of size numPages)
+// *where the ith element is the fix count of the page stored
+// *in the ith page frame. Return 0 for empty page frames.*/
+//int *getFixCounts (BM_BufferPool *const bm) {
+//    // if(bm == NULL){
+//    //     printf("The buffer pool is illegal.");
+//    //     return RC_READ_NON_EXISTING_BUFFERPOOL;
+//    // }
+//    BM_PageHandle *frame = (*bm).mgmtData;
+//    int *fixCounts = malloc(sizeof(int) * ((*bm).numPages));
+//
+//    int i = 0;
+//    while(i < (*bm).numPages) {
+//        fixCounts[i] = (frame + i)->fixCounts;
+//        i++;
+//    }
+//    return fixCounts;
+//}
+
+int *getFixCounts (BM_BufferPool *const bm) {
+    int *fixCounts = malloc(sizeof(int) * ((*bm).numPages));
+    BM_PageHandle *frame = (*bm).mgmtData;
+
+    for(int i = 0; i < (*bm).numPages; i++) fixCounts[i] = (frame + i)->fixCounts;
     return fixCounts;
 }
+
 //The getNumReadIO function returns the number of pages that have been read from disk since a buffer pool has been initialized.
 int getNumReadIO (BM_BufferPool *const bm) {
     return (*bm).readNum;
