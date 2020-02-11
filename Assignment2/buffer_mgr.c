@@ -49,7 +49,7 @@
 // }
 
 /*
-	initBufferPool creates a new buffer pool with numPages page frames using the page replacement strategy strategy. 
+	initBufferPool creates a new buffer pool with numPages page frames using the page replacement strategy. 
 	The pool is used to cache pages from the page file with name pageFileName. Initially, all page frames should be empty. 
 	The page file should already exist, i.e., this method should not generate a new page file. 
 	stratData can be used to pass parameters for the page replacement strategy. For example, for LRU-k this could be the parameter k.
@@ -262,16 +262,12 @@ int FIFOandLRU(BM_BufferPool *bm) {
     int least = (*bm).count;
     int evictPageNum = -1;
 
-    strategyNum = (int *)calloc((*bm).numPages,
-                                sizeof(((*bm).mgmtData)->strategyRecords));
+    strategyNum = (int *)calloc((*bm).numPages, sizeof(((*bm).mgmtData)->strategyRecords));
     for (int i = 0; i < (*bm).numPages; i++) {
         flag = strategyNum + i;
         *flag = *(((*bm).mgmtData + i)->strategyRecords);
 
-        if (*(fixCounts + i) != 0){
-            continue;
-        }
-
+        if (*(fixCounts + i) != 0){continue;}
         if (least >= (*(strategyNum + i))) {
             evictPageNum = i;
             least = (*(strategyNum + i));
@@ -304,7 +300,7 @@ RC pinPage (BM_BufferPool *const bm, BM_PageHandle *const page,
     {
         BM_PageHandle *curPage = ((*bm).mgmtData + check);
          //there has empty page in buffer pool
-        if ((*curPage).pageNum == -1)
+        if ((*curPage).pageNum <0)
         {
             (*curPage).data = (char*)calloc(PAGE_SIZE, sizeof(char));
             //initilialize the empty page
@@ -317,9 +313,7 @@ RC pinPage (BM_BufferPool *const bm, BM_PageHandle *const page,
         {
             p = check;
             isExist = TRUE;
-            if ((*bm).strategy == RS_LRU){
-                freshStrategy(bm, (*bm).mgmtData + p);
-            }
+            if ((*bm).strategy == RS_LRU){ freshStrategy(bm, (*bm).mgmtData + p); }
             break;
         }
         //the buffer pool is already full
@@ -331,9 +325,7 @@ RC pinPage (BM_BufferPool *const bm, BM_PageHandle *const page,
             if ((*bm).strategy == RS_FIFO || (*bm).strategy == RS_LRU)
             {
                 p = FIFOandLRU(bm);
-                if (((*bm).mgmtData + p)->dirty){
-                    forcePage(bm, (*bm).mgmtData + p);
-                }
+                if (((*bm).mgmtData + p)->dirty){ forcePage(bm, (*bm).mgmtData + p); }
             }
         }
     }
