@@ -4,7 +4,7 @@
 #include "buffer_mgr_stat.h"
 #include "dt.h"
 #include "dberror.h"
-
+#include "limits.h"
 
 
 
@@ -56,15 +56,14 @@
 */
 void init (BM_PageHandle *const page) {
     (*page).data = NULL;
+    (*page).pageNum = INT_MIN;
     (*page).dirty = 0;
-    (*page).pageNum = -1;
     (*page).fixCounts = 0;
 }
 
 RC initBufferPool(BM_BufferPool *const bm, const char *const pageFileName, const int numPages, ReplacementStrategy strategy, void *stratData){
     if(bm == NULL) return RC_BUFFER_ERROR;
     if(fopen(pageFileName, "r") == NULL) {
-        // RC_message = "Can not find the file.";
         return RC_FILE_NOT_FOUND;
     }
     //initializing the buffer pool
@@ -132,7 +131,6 @@ RC shutdownBufferPool(BM_BufferPool *const bm){
     for(int i=0; i< (*bm).numPages; i++){
         if(*(fixCounts + i)){ //pinned pages
             free(fixCounts);
-            // RC_message = "The Buffer Pool still has pinned page.";
             return RC_BUFFER_ERROR;
         }
     }
@@ -282,22 +280,15 @@ RC freshStrategy(BM_BufferPool *bm, BM_PageHandle *pageHandle) {
 
 
 int FIFOandLRU(BM_BufferPool *bm) {
-    // if(bm == NULL)
-    // {
-    //     printf("The buffer pool is illegal.");
-    //     return RC_READ_NON_EXISTING_BUFFERPOOL;
-    // }
-
     int *fixCounts = getFixCounts(bm);
     int *strategyNum = (int *)calloc((*bm).numPages, sizeof((*((*bm).mgmtData)).strategyRecords));
     int *flag;
     int least = (*bm).count;
-    int evictPageNum = -1;
+    int evictPageNum = INT_MIN;
 
     for (int i = 0; i < (*bm).numPages; i++) {
         flag = strategyNum + i;
         *flag = *((*((*bm).mgmtData + i)).strategyRecords);
-
         if (*(fixCounts + i) != 0) {
             continue;
         }
@@ -429,6 +420,7 @@ void modify(BM_BufferPool *const bm, bool isExist, BM_PageHandle *const page, co
 
 RC pinPage (BM_BufferPool *const bm, BM_PageHandle *const page, const PageNumber pageNum) {
     int p = -1;
+
     bool isExist;
     for (int check = 0; check < (*bm).numPages; check++) {
          //there has empty page in buffer pool

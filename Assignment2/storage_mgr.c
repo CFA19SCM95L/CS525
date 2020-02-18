@@ -20,6 +20,11 @@ extern RC createPageFile (char *fileName) {
         fclose(Database);
     }
     Database = fopen(fileName, "w+"); //Creates an empty file for writing.
+    /*
+        *The initial file size should be one page.
+        *This method should fill this single page with '\0' bytes.
+        */
+    //Writing empty page to file
     char *newPage = (char *)malloc(PAGE_SIZE * sizeof(char)); // allocate the newPage into Database
     fwrite(newPage, sizeof(char), PAGE_SIZE, Database); // allocate the position
     printf("Successed to write...\n\n");
@@ -60,7 +65,9 @@ RC destroyPageFile(char *fileName) {
 
 
 extern RC readBlock (int pageNum, SM_FileHandle *fHandle, SM_PageHandle memPage) {
-
+    /*The method reads the pageNumth block from a file
+     *Then stores its content in the memory pointed to by the memPage page handle
+     */
     //Checking whether the pageNum is void or not
     if((*fHandle).totalNumPages < pageNum ) {
         printf("Failed to read block...\n\n");
