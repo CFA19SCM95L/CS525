@@ -5,48 +5,9 @@
 #include "dt.h"
 #include "dberror.h"
 #include "limits.h"
+#define RC_BUFFER_ERROR 5
 
 
-
-//Buffer Pool Management Functions
-// RC initBufferPool(BM_BufferPool *const bm, const char *const pageFileName, const int numPages, ReplacementStrategy strategy, void *stratData){
-//     // if(bm == NULL) {
-//     //     printf("The buffer pool is illegal.");
-//     //     return RC_READ_NON_EXISTING_BUFFERPOOL;
-//     // }
-//     FILE *myFile;
-
-//     //check the pageFileName is valid or not
-//     myFile = fopen(pageFileName, "r");
-//     if(myFile != NULL){
-//         fclose(myFile);
-//     }else{
-//         RC_message = "Can not find the file.";
-//         return RC_FILE_NOT_FOUND;
-//     }
-
-//     //initializing the buffer pool
-//     bm->pageFile = (char *)pageFileName;
-//     bm->numPages = numPages;
-//     bm->strategy = strategy;
-//     BM_PageHandle *buffer = (BM_PageHandle *)calloc(numPages, sizeof(BM_PageHandle));
-//     bm->mgmtData = buffer;
-//     int i;
-//     for (i = 0; i < numPages; i++)
-//     {
-//         (bm->mgmtData + i)->data = NULL;
-//         (bm->mgmtData + i)->dirty = 0;
-//         (bm->mgmtData + i)->pageNum = -1;
-//         (bm->mgmtData + i)->fixCounts = 0;
-//     }
-//     //Strategy Variable
-//     bm->readNum = 0;
-//     bm->writeNum = 0;
-//     bm->count = 0;
-
-//     printf("Initialized a new Buffer Pool.\n");
-//     return RC_OK;
-// }
 
 /*
 	initBufferPool creates a new buffer pool with numPages page frames using the page replacement strategy. 
@@ -54,7 +15,7 @@
 	The page file should already exist, i.e., this method should not generate a new page file. 
 	stratData can be used to pass parameters for the page replacement strategy. For example, for LRU-k this could be the parameter k.
 */
-void init (BM_PageHandle *const page) {
+void initPage (BM_PageHandle *const page) {
     (*page).data = NULL;
     (*page).pageNum = INT_MIN;
     (*page).dirty = 0;
@@ -62,59 +23,20 @@ void init (BM_PageHandle *const page) {
 }
 
 RC initBufferPool(BM_BufferPool *const bm, const char *const pageFileName, const int numPages, ReplacementStrategy strategy, void *stratData){
-    if(bm == NULL) return RC_BUFFER_ERROR;
-    if(fopen(pageFileName, "r") == NULL) {
-        return RC_FILE_NOT_FOUND;
-    }
     //initializing the buffer pool
     (*bm).pageFile = (char *)pageFileName;
     (*bm).numPages = numPages;
     (*bm).strategy = strategy;
     (*bm).mgmtData = (BM_PageHandle *)calloc(numPages, sizeof(BM_PageHandle));
-    for (int i = 0; i < numPages; i++) init((*bm).mgmtData + i);
+    int i = 0;
+    while (i < numPages) initPage((*bm).mgmtData + i++);    
     //Strategy Variable
     (*bm).readNum = 0;
     (*bm).writeNum = 0;
     (*bm).count = 0;
-    printf("Init...\n");
+    printf("InitBuffer: Successful.\n");
     return RC_OK;
 }
-
-
-//  RC shutdownBufferPool(BM_BufferPool *const bm){
-//     //  if(bm == NULL)
-//     //  {
-//     //      printf("The buffer pool is illegal.");
-//     //      return RC_READ_NON_EXISTING_BUFFERPOOL;
-//     //  }
-
-//      //check if there has any pinned page;
-//      int *fixCounts;
-//      fixCounts = getFixCounts(bm);
-//      for(int i=0; i< bm->numPages; i++){
-//          if(*(fixCounts + i)){ //pinned pages
-//              free(fixCounts);
-//             //  RC_message = "The Buffer Pool still has pinned page.";
-//             //  return RC_SHUTDOWN_POOL_WITH_PINNED_PAGES;
-//          }
-//      }
-
-//      RC result;
-//      result = forceFlushPool(bm);
-//      if (result != RC_OK) {
-//          free(fixCounts);
-//          return result;
-//      }
-
-//      for (int i = 0; i < bm->numPages; i++) {
-//          free((bm->mgmtData + i)->data);
-//          free((bm->mgmtData + i)->strategyRecords);
-//      }
-//      free(fixCounts);
-//      free(bm->mgmtData);
-//      printf("Shut down the Buffer Pool successfully.\n");
-//      return RC_OK;
-//  }
 
 /*  shutdownBufferPool:destroys a buffer pool. This method should free up
  *  all resources associated with buffer pool. For example, it should free
@@ -128,123 +50,42 @@ RC shutdownBufferPool(BM_BufferPool *const bm){
     if(bm == NULL) return RC_BUFFER_ERROR;
     //check if there has any pinned page;
     int *fixCounts = getFixCounts(bm);
-    for(int i=0; i< (*bm).numPages; i++){
-        if(*(fixCounts + i)){ //pinned pages
-            free(fixCounts);
-            return RC_BUFFER_ERROR;
-        }
-    }
     forceFlushPool(bm);
-    for (int i = 0; i < (*bm).numPages; i++) {
-        free((*((*bm).mgmtData + i)).data);
-        free((*((*bm).mgmtData + i)).strategyRecords);
-    }
     free(fixCounts);
     free((*bm).mgmtData);
     printf("Shut down Buffer Pool: Successfull.\n");
     return RC_OK;
  }
 
-
 /*
  * forceFlushPool causes all dirty pages (with fixcounts 0)
  * from the buffer pool to be written to disk.
  */
 
-// RC forceFlushPool(BM_BufferPool *const bm){
-//     // if(bm == NULL)
-//     // {
-//     //     printf("The buffer pool is illegal.");
-//     //     return RC_READ_NON_EXISTING_BUFFERPOOL;
-//     // }
-
-//     int *fixCounts;
-//     bool *dirty;
-//     BM_PageHandle *dirtyPages;
-
-//     fixCounts = getFixCounts(bm);
-//     dirty = getDirtyFlags(bm);
-
-//     for(int i=0; i< bm->numPages; i++){
-//         if(*(dirty + i)){
-//             if(*(fixCounts + i)){  //fixcounts is not equal to 0;
-//                 //someone still need them
-//                 continue;
-//             }
-//             else{
-//                 dirtyPages = ((bm->mgmtData)+i);
-//                 RC result = forcePage(bm, dirtyPages);
-//                 if (result != RC_OK) {
-//                     free(dirty);
-//                     free(fixCounts);
-//                     return result;
-//                 }
-//             }
-//         }
-//     }
-//     for (int i = 0; i < bm->numPages; ++i)
-//     {
-//         if (*(dirty + i))
-//             ((bm->mgmtData) + i)->dirty = 0;
-//     }
-//     free(dirty);
-//     free(fixCounts);
-//     printf("Already Flushed the Buffer Pool.\n");
-//     return RC_OK;
-// }
-
-/*
- * forceFlushPool causes all dirty pages (with fixcounts 0)
- * from the buffer pool to be written to disk.
- */
-
-RC forceFlushPool(BM_BufferPool *const bm){
+RC forceFlushPool(BM_BufferPool *const bm){   
     if(bm == NULL) return RC_BUFFER_ERROR;
-    int *fixCounts = getFixCounts(bm);
     bool *dirty = getDirtyFlags(bm);
     for(int i=0; i< (*bm).numPages; i++){      
-        if(*(dirty + i) == false){
-            continue;
-        }
-        if(*(fixCounts + i) == false) forcePage(bm, ((*bm).mgmtData)+i);
+        if(*(dirty + i) == false) continue;
+        if(*(getFixCounts(bm) + i) == false) forcePage(bm, ((*bm).mgmtData)+i);
         (*(((*bm).mgmtData) + i)).dirty = 0;
     }
     free(dirty);
-    free(fixCounts);
-    // printf("Already Flushed the Buffer Pool.\n");
+    free(getFixCounts(bm));
+    printf("ForceFlush: Successful.");
     return RC_OK;
 }
 
-//we can use this method to fresh the page's strategy.
-//RC freshStrategy(BM_BufferPool *bm, BM_PageHandle *pageHandle) {
-//    if (pageHandle->strategyRecords == NULL) {
-//        if ((*bm).strategy == RS_FIFO || (*bm).strategy == RS_LRU) {
-//            pageHandle->strategyRecords = calloc(1, sizeof(int));
-//        }
-//    }
-//
-//    if ((*bm).strategy == RS_FIFO || (*bm).strategy == RS_LRU) {
-//        int *sNum;
-//        sNum = (int *)pageHandle->strategyRecords;
-//        *sNum = ((*bm).count);
-//        ((*bm).count)++;
-//        return RC_OK;
-//    }
-//    return RC_BUFFER_ERROR;
-//}
-
 RC freshStrategy(BM_BufferPool *bm, BM_PageHandle *pageHandle) {
-    if ((*pageHandle).strategyRecords == NULL)
-        if ((*bm).strategy == RS_FIFO || (*bm).strategy == RS_LRU) (*pageHandle).strategyRecords = calloc(1, sizeof(int));
-
-    if ((*bm).strategy == RS_FIFO || (*bm).strategy == RS_LRU) {
-        int *sNum;
-        sNum = (int *)(*pageHandle).strategyRecords;
-        *sNum = ((*bm).count);
-        ((*bm).count)++;
-        return RC_OK;
+    if ((*bm).strategy != RS_FIFO && (*bm).strategy != RS_LRU) {
+        return RC_BUFFER_ERROR;
     }
-    return RC_BUFFER_ERROR;
+    if ((*pageHandle).strategyRecords == NULL) {
+        if ((*bm).strategy == RS_FIFO || (*bm).strategy == RS_LRU) (*pageHandle).strategyRecords = calloc(1, sizeof(int));
+    }   
+    int *sNum = (int *)(*pageHandle).strategyRecords;
+    *sNum = ((*bm).count++);
+    return RC_OK;
 }
 
 // int FIFOandLRU(BM_BufferPool *bm) {
@@ -280,7 +121,26 @@ RC freshStrategy(BM_BufferPool *bm, BM_PageHandle *pageHandle) {
 
 
 int FIFOandLRU(BM_BufferPool *bm) {
-    int *fixCounts = getFixCounts(bm);
+    // int *fixCounts = getFixCounts(bm);
+    // int *strategyNum = (int *)calloc((*bm).numPages, sizeof((*((*bm).mgmtData)).strategyRecords));
+    // int *flag;
+    // int least = (*bm).count;
+    // int evictPageNum = INT_MIN;
+
+    // for (int i = 0; i < (*bm).numPages; i++) {
+    //     flag = strategyNum + i;
+    //     *flag = *((*((*bm).mgmtData + i)).strategyRecords);
+    //     if (*(fixCounts + i) != 0) {
+    //         continue;
+    //     }
+    //     if (least >= (*(strategyNum + i))) {
+    //         evictPageNum = i;
+    //         least = (*(strategyNum + i));
+    //     }
+    // }
+    // return evictPageNum; 
+       
+    // int *fixCounts = getFixCounts(bm);
     int *strategyNum = (int *)calloc((*bm).numPages, sizeof((*((*bm).mgmtData)).strategyRecords));
     int *flag;
     int least = (*bm).count;
@@ -289,7 +149,7 @@ int FIFOandLRU(BM_BufferPool *bm) {
     for (int i = 0; i < (*bm).numPages; i++) {
         flag = strategyNum + i;
         *flag = *((*((*bm).mgmtData + i)).strategyRecords);
-        if (*(fixCounts + i) != 0) {
+        if (*(getFixCounts(bm) + i) != 0) {
             continue;
         }
         if (least >= (*(strategyNum + i))) {
@@ -307,89 +167,6 @@ int FIFOandLRU(BM_BufferPool *bm) {
  *  passed to the method. Similarly, the data field should point to the page frame
  *  the page is stored in (the area in memory storing the content of the page).
  */
-
-// RC pinPage (BM_BufferPool *const bm, BM_PageHandle *const page,
-//             const PageNumber pageNum)
-// {
-//     if(bm == NULL || page == NULL || pageNum < 0)
-//        {
-//            return printf("The buffer pool is illegal.");
-//            return RC_READ_NON_EXISTING_BUFFERPOOL;;
-//        }
-
-//     int p = -1;
-//     bool isExist;
-//     int check;
-//     for (check = 0; check < bm->numPages; check++)
-//     {
-//         BM_PageHandle *curPage = (bm->mgmtData + check);
-//          //there has empty page in buffer pool
-//         if (curPage->pageNum == -1)
-//         {
-//             curPage->data = (char*)calloc(PAGE_SIZE, sizeof(char));
-//             //initilialize the empty page
-//             p = check;
-//             isExist = FALSE;
-//             break;
-//         }
-//         //the page is already in the buffer pool
-//         if (curPage->pageNum == pageNum)
-//         {
-//             p = check;
-//             isExist = TRUE;
-//             if (bm->strategy == RS_LRU){
-//                 freshStrategy(bm, bm->mgmtData + p);
-//             }
-//             break;
-//         }
-//         //the buffer pool is already full
-//         if (check == bm->numPages - 1)
-//         {
-
-//             isExist = FALSE;
-//             //find which page should be evicted.
-//             if (bm->strategy == RS_FIFO || bm->strategy == RS_LRU)
-//             {
-//                 p = FIFOandLRU(bm);
-//                 if ((bm->mgmtData + p)->dirty){
-//                     forcePage(bm, bm->mgmtData + p);
-//                 }
-//             }
-//         }
-//     }
-
-//     BM_PageHandle *modPage = (bm->mgmtData + p);
-//     if (isExist)
-//     {
-//         page->data = modPage->data;
-//         page->pageNum = pageNum;
-//         (modPage->fixCounts)++;
-//         page->fixCounts = modPage->fixCounts;
-//         page->dirty = modPage->dirty;
-//         page->strategyRecords = modPage->strategyRecords;
-
-//     }
-//     if (!isExist)
-//     {
-//        FILE* file;
-//        file = fopen(bm->pageFile, "r");
-//        fseek(file, pageNum * PAGE_SIZE, SEEK_SET);
-//        fread(modPage->data, sizeof(char), PAGE_SIZE, file);
-//        page->data = modPage->data;
-//        modPage->pageNum = pageNum;
-//        page->pageNum = pageNum;
-//        (modPage->fixCounts)++;
-//        page->fixCounts = modPage->fixCounts;
-//        page->dirty = modPage->dirty;
-//        page->strategyRecords = modPage->strategyRecords;
-//        bm->readNum++;
-//        freshStrategy(bm, modPage);
-//        fclose(file);
-//     }
-//     printf("Page has been pinned.\n");
-//     return RC_OK;
-// }
-
 
 
 void modify(BM_BufferPool *const bm, bool isExist, BM_PageHandle *const page, const PageNumber pageNum, int p) {
@@ -454,7 +231,7 @@ RC pinPage (BM_BufferPool *const bm, BM_PageHandle *const page, const PageNumber
     }
 
     modify(bm, isExist, page, pageNum, p);    
-    printf("Page pin: Successful.\n");
+    printf("PinPage: Successful.\n");
     return RC_OK;
 }
 
@@ -491,7 +268,7 @@ RC unpinPage (BM_BufferPool *const bm, BM_PageHandle *const page) {
             break;
         }
     }
-    printf("Page unpin: Successful.\n");
+    printf("UnpinPage: Successful.\n");
     return RC_OK;
 }
 
@@ -527,7 +304,7 @@ RC markDirty (BM_BufferPool *const bm, BM_PageHandle *const page) {
             break;
         }
     }
-    printf("Mark page: Successful.\n");
+    printf("MarkDirty: Successful.\n");
     return RC_OK;
 }
 
@@ -569,35 +346,19 @@ RC forcePage (BM_BufferPool *const bm, BM_PageHandle *const page) {
         if ((*((*bm).mgmtData + i)).pageNum == pageNum) (*((*bm).mgmtData + i)).dirty = 0;
     }
     (*page).dirty = 0;
-    printf("Force page: Successful.\n");
+    printf("ForcePage: Successful.\n");
     return RC_OK;
 }
 
-///*The getFrameContents function returns an array of PageNumbers
-//where the ith element is the number of the page stored in the ith page frame.*/
-//PageNumber *getFrameContents (BM_BufferPool *const bm) {
-//    BM_PageHandle *frame = (*bm).mgmtData;
-//    PageNumber *frameContents = (PageNumber*)malloc(sizeof(PageNumber)
-//                                                    * ((*bm).numPages));
-//    int i = 0;
-//    while(i < (*bm).numPages) {
-//        if ((frame + i)->data != NULL) {
-//            frameContents[i] = (frame + i)->pageNum;
-//        } else {
-//            frameContents[i] = NO_PAGE;
-//        }
-//        i++;
-//    }
-//    return frameContents;
-//}
 
 /*The getFrameContents function returns an array of PageNumbers
 where the ith element is the number of the page stored in the ith page frame.*/
 PageNumber *getFrameContents (BM_BufferPool *const bm) {
     PageNumber *frameContents = (PageNumber*)malloc(sizeof(PageNumber) * ((*bm).numPages));
-    for(int i = 0; i < (*bm).numPages; i++)
-        if (((*bm).mgmtData + i)->data != NULL) frameContents[i] = (*((*bm).mgmtData + i)).pageNum;
-        else frameContents[i] = NO_PAGE;
+    for(int i = 0; i < (*bm).numPages; i++) {
+        frameContents[i] = (*((*bm).mgmtData + i)).data != NULL ? (*((*bm).mgmtData + i)).pageNum : NO_PAGE;
+    }
+    printf("GetFrame: Successful.\n");
     return frameContents;
 }
 
@@ -620,6 +381,7 @@ where the ith element is TRUE if the page stored in the ith page frame is dirty.
 bool *getDirtyFlags (BM_BufferPool *const bm) {
     bool *dirtyFlags = malloc(sizeof(bool) * ((*bm).numPages));
     for(int i = 0; i < (*bm).numPages; i++) dirtyFlags[i] = (*((*bm).mgmtData + i)).dirty;
+    printf("GetDirty: Successful.\n");
     return dirtyFlags;
 }
 
@@ -646,15 +408,17 @@ bool *getDirtyFlags (BM_BufferPool *const bm) {
 int *getFixCounts (BM_BufferPool *const bm) {
     int *fixCounts = malloc(sizeof(int) * ((*bm).numPages));
     for(int i = 0; i < (*bm).numPages; i++) fixCounts[i] = (*((*bm).mgmtData + i)).fixCounts;
-
+    printf("GetFixCounts: Successful.\n");
     return fixCounts;
 }
 
 //The getNumReadIO function returns the number of pages that have been read from disk since a buffer pool has been initialized.
 int getNumReadIO (BM_BufferPool *const bm) {
+    printf("GetNumReadIO: Successful.\n");
     return (*bm).readNum;
 }
 //getNumWriteIO returns the number of pages written to the page file since the buffer pool has been initialized.
 int getNumWriteIO (BM_BufferPool *const bm) {
+    printf("GetNumWriteIO: Successful.\n");
     return (*bm).writeNum;
 }

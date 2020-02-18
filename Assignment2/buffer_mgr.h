@@ -44,6 +44,7 @@ typedef struct BM_BufferPool {
     int readNum;
     int writeNum;
 	BM_PageHandle *mgmtData; // use this one to store the bookkeeping info your buffer
+
 	// manager needs for a buffer pool
 } BM_BufferPool;
 
