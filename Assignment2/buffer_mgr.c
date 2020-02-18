@@ -18,7 +18,7 @@
 void initPage (BM_PageHandle *const page) {
     (*page).data = NULL;
     (*page).pageNum = INT_MIN;
-    (*page).dirty = 0;
+    (*page).dirty = false;
     (*page).fixCounts = 0;
 }
 
@@ -48,7 +48,6 @@ RC initBufferPool(BM_BufferPool *const bm, const char *const pageFileName, const
 
 RC shutdownBufferPool(BM_BufferPool *const bm){
     if(bm == NULL) return RC_BUFFER_ERROR;
-    //check if there has any pinned page;
     int *fixCounts = getFixCounts(bm);
     forceFlushPool(bm);
     free(fixCounts);
@@ -68,7 +67,7 @@ RC forceFlushPool(BM_BufferPool *const bm){
     for(int i=0; i< (*bm).numPages; i++){      
         if(*(dirty + i) == false) continue;
         if(*(getFixCounts(bm) + i) == false) forcePage(bm, ((*bm).mgmtData)+i);
-        (*(((*bm).mgmtData) + i)).dirty = 0;
+        (*(((*bm).mgmtData) + i)).dirty = false;
     }
     free(dirty);
     free(getFixCounts(bm));
@@ -121,41 +120,18 @@ RC freshStrategy(BM_BufferPool *bm, BM_PageHandle *pageHandle) {
 
 
 int FIFOandLRU(BM_BufferPool *bm) {
-    // int *fixCounts = getFixCounts(bm);
-    // int *strategyNum = (int *)calloc((*bm).numPages, sizeof((*((*bm).mgmtData)).strategyRecords));
-    // int *flag;
-    // int least = (*bm).count;
-    // int evictPageNum = INT_MIN;
-
-    // for (int i = 0; i < (*bm).numPages; i++) {
-    //     flag = strategyNum + i;
-    //     *flag = *((*((*bm).mgmtData + i)).strategyRecords);
-    //     if (*(fixCounts + i) != 0) {
-    //         continue;
-    //     }
-    //     if (least >= (*(strategyNum + i))) {
-    //         evictPageNum = i;
-    //         least = (*(strategyNum + i));
-    //     }
-    // }
-    // return evictPageNum; 
-       
-    // int *fixCounts = getFixCounts(bm);
     int *strategyNum = (int *)calloc((*bm).numPages, sizeof((*((*bm).mgmtData)).strategyRecords));
-    int *flag;
     int least = (*bm).count;
     int evictPageNum = INT_MIN;
 
     for (int i = 0; i < (*bm).numPages; i++) {
-        flag = strategyNum + i;
+        int *flag = strategyNum + i;
         *flag = *((*((*bm).mgmtData + i)).strategyRecords);
         if (*(getFixCounts(bm) + i) != 0) {
             continue;
         }
-        if (least >= (*(strategyNum + i))) {
-            evictPageNum = i;
-            least = (*(strategyNum + i));
-        }
+        evictPageNum = least >= *(strategyNum + i)? i: evictPageNum;
+        least = least >= *(strategyNum + i) ? *(strategyNum + i): least;
     }
     return evictPageNum;
 }
@@ -299,8 +275,8 @@ RC unpinPage (BM_BufferPool *const bm, BM_PageHandle *const page) {
 RC markDirty (BM_BufferPool *const bm, BM_PageHandle *const page) {
     for(int i = 0; i < (*bm).numPages; i++) {
         if ((*((*bm).mgmtData + i)).pageNum == (*page).pageNum) {
-            (*((*bm).mgmtData + i)).dirty = 1;
-            (*page).dirty = 1;
+            (*((*bm).mgmtData + i)).dirty = true;
+            (*page).dirty = true;
             break;
         }
     }
@@ -339,13 +315,12 @@ RC forcePage (BM_BufferPool *const bm, BM_PageHandle *const page) {
     int pageNum = (*page).pageNum;
     fseek(curFile, pageNum*PAGE_SIZE, SEEK_SET);
     fwrite((*page).data, PAGE_SIZE, 1, curFile);
-    ((*bm).writeNum)++;
     fclose(curFile);
-
-    for(int i = 0; i < (*bm).numPages; i++) {
-        if ((*((*bm).mgmtData + i)).pageNum == pageNum) (*((*bm).mgmtData + i)).dirty = 0;
+    (*bm).writeNum++;
+    for(int i = 0; i < (*bm).numPages; i++) {       
+        if ((*((*bm).mgmtData + i)).pageNum != pageNum) continue;
+        (*((*bm).mgmtData + i)).dirty = false;
     }
-    (*page).dirty = 0;
     printf("ForcePage: Successful.\n");
     return RC_OK;
 }
