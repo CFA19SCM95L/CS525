@@ -28,13 +28,6 @@ typedef struct BM_PageHandle {
     int *strategyRecords;
 } BM_PageHandle;
 
-// typedef struct BM_BufferPool {
-// 	char *pageFile;
-// 	int numPages;
-// 	ReplacementStrategy strategy;
-// 	void *mgmtData; // use this one to store the bookkeeping info your buffer
-// 	// manager needs for a buffer pool
-// } BM_BufferPool;
 
 typedef struct BM_BufferPool {
 	char *pageFile;
@@ -47,12 +40,6 @@ typedef struct BM_BufferPool {
 
 	// manager needs for a buffer pool
 } BM_BufferPool;
-
-// typedef struct BM_PageHandle {
-// 	PageNumber pageNum;
-// 	char *data;
-// } BM_PageHandle;
-
 
 
 // convenience macros

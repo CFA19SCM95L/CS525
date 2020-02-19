@@ -1,3 +1,8 @@
+/*
+    A20435695 Chen En Lee
+    A20437470 Jingeun Jung
+*/
+
 #include "stdio.h"
 #include "stdlib.h"
 #include "buffer_mgr.h"
@@ -6,6 +11,7 @@
 #include "dberror.h"
 #include "limits.h"
 #define RC_BUFFER_ERROR 5
+
 
 
 
@@ -23,14 +29,12 @@ void initPage (BM_PageHandle *const page) {
 }
 
 RC initBufferPool(BM_BufferPool *const bm, const char *const pageFileName, const int numPages, ReplacementStrategy strategy, void *stratData){
-    //initializing the buffer pool
     (*bm).pageFile = (char *)pageFileName;
     (*bm).numPages = numPages;
     (*bm).strategy = strategy;
     (*bm).mgmtData = (BM_PageHandle *)calloc(numPages, sizeof(BM_PageHandle));
     int i = 0;
     while (i < numPages) initPage((*bm).mgmtData + i++);    
-    //Strategy Variable
     (*bm).readNum = 0;
     (*bm).writeNum = 0;
     (*bm).count = 0;
@@ -75,6 +79,50 @@ RC forceFlushPool(BM_BufferPool *const bm){
     return RC_OK;
 }
 
+//markDirty marks a page as dirty.
+RC markDirty (BM_BufferPool *const bm, BM_PageHandle *const page) {
+    for(int i = 0; i < (*bm).numPages; i++) {
+        if ((*((*bm).mgmtData + i)).pageNum == (*page).pageNum) {
+            (*((*bm).mgmtData + i)).dirty = true;
+            (*page).dirty = true;
+            break;
+        }
+    }
+    printf("MarkDirty: Successful.\n");
+    return RC_OK;
+}
+
+/*
+    unpinPage unpins the page page.
+    The pageNum field of page should be used to figure out which page to unpin.
+*/
+RC unpinPage (BM_BufferPool *const bm, BM_PageHandle *const page) {
+    for(int i = 0; i < (*bm).numPages; i++) {
+        if ((*((*bm).mgmtData + i)).pageNum == (*page).pageNum) {
+            (*((*bm).mgmtData + i)).fixCounts--;
+            break;
+        }
+    }
+    printf("UnpinPage: Successful.\n");
+    return RC_OK;
+}
+
+//forcePage should write the current content of the page back to the page file on disk.
+RC forcePage (BM_BufferPool *const bm, BM_PageHandle *const page) {
+    FILE *curFile = fopen((*bm).pageFile, "rb+");
+    int pageNum = (*page).pageNum;
+    fseek(curFile, pageNum*PAGE_SIZE, SEEK_SET);
+    fwrite((*page).data, PAGE_SIZE, 1, curFile);
+    fclose(curFile);
+    (*bm).writeNum++;
+    for(int i = 0; i < (*bm).numPages; i++) {       
+        if ((*((*bm).mgmtData + i)).pageNum != pageNum) continue;
+        (*((*bm).mgmtData + i)).dirty = false;
+    }
+    printf("ForcePage: Successful.\n");
+    return RC_OK;
+}
+
 RC freshStrategy(BM_BufferPool *bm, BM_PageHandle *pageHandle) {
     if ((*bm).strategy != RS_FIFO && (*bm).strategy != RS_LRU) {
         return RC_BUFFER_ERROR;
@@ -86,63 +134,6 @@ RC freshStrategy(BM_BufferPool *bm, BM_PageHandle *pageHandle) {
     *sNum = ((*bm).count++);
     return RC_OK;
 }
-
-// int FIFOandLRU(BM_BufferPool *bm) {
-//     // if(bm == NULL)
-//     // {
-//     //     printf("The buffer pool is illegal.");
-//     //     return RC_READ_NON_EXISTING_BUFFERPOOL;
-//     // }
-
-//     int *fixCounts = getFixCounts(bm);
-//     int *strategyNum;
-//     int *flag;
-//     int least = (*bm).count;
-//     int evictPageNum = -1;
-
-//     strategyNum = (int *)calloc((*bm).numPages,
-//                                 sizeof(((*bm).mgmtData)->strategyRecords));
-//     for (int i = 0; i < (*bm).numPages; i++) {
-//         flag = strategyNum + i;
-//         *flag = *(((*bm).mgmtData + i)->strategyRecords);
-
-//         if (*(fixCounts + i) != 0){
-//             continue;
-//         }
-
-//         if (least >= (*(strategyNum + i))) {
-//             evictPageNum = i;
-//             least = (*(strategyNum + i));
-//         }
-//     }
-//     return evictPageNum;
-// }
-
-
-int FIFOandLRU(BM_BufferPool *bm) {
-    int *strategyNum = (int *)calloc((*bm).numPages, sizeof((*((*bm).mgmtData)).strategyRecords));
-    int least = (*bm).count;
-    int evictPageNum = INT_MIN;
-
-    for (int i = 0; i < (*bm).numPages; i++) {
-        int *flag = strategyNum + i;
-        *flag = *((*((*bm).mgmtData + i)).strategyRecords);
-        if (*(getFixCounts(bm) + i) != 0) {
-            continue;
-        }
-        evictPageNum = least >= *(strategyNum + i)? i: evictPageNum;
-        least = least >= *(strategyNum + i) ? *(strategyNum + i): least;
-    }
-    return evictPageNum;
-}
-
-//Page Management Functions
-/*
- * pinPage pins the page with page number pageNum.
- * The buffer manager is responsible to set the pageNum field of the page handle
- *  passed to the method. Similarly, the data field should point to the page frame
- *  the page is stored in (the area in memory storing the content of the page).
- */
 
 
 void modify(BM_BufferPool *const bm, bool isExist, BM_PageHandle *const page, const PageNumber pageNum, int p) {
@@ -171,21 +162,18 @@ void modify(BM_BufferPool *const bm, bool isExist, BM_PageHandle *const page, co
     }
 }
 
-RC pinPage (BM_BufferPool *const bm, BM_PageHandle *const page, const PageNumber pageNum) {
-    int p = -1;
+struct Result
+{
+    int p;
+    bool flag;
+};
 
+struct Result check (int val, BM_BufferPool *const bm, BM_PageHandle *const page, const PageNumber pageNum) {
+    int p = val;
     bool isExist;
     for (int check = 0; check < (*bm).numPages; check++) {
-         //there has empty page in buffer pool
-        if ((*((*bm).mgmtData + check)).pageNum <0) {
-            (*((*bm).mgmtData + check)).data = (char*)malloc(PAGE_SIZE * sizeof(char));
-            //initilialize the empty page
-            p = check;
-            isExist = FALSE;
-            break;
-        }
-        //the page is already in the buffer pool
-        if ((*((*bm).mgmtData + check)).pageNum == pageNum) {
+
+        if ((*((*bm).mgmtData + check)).pageNum == pageNum) {   //in the buffer pool
             p = check;
             isExist = TRUE;
             if ((*bm).strategy == RS_LRU){ 
@@ -193,141 +181,61 @@ RC pinPage (BM_BufferPool *const bm, BM_PageHandle *const page, const PageNumber
             }
             break;
         }
-        //the buffer pool is already full
-        if (check == (*bm).numPages - 1) {
+        if ((*((*bm).mgmtData + check)).pageNum < 0) {      //empty page
+            (*((*bm).mgmtData + check)).data = (char*)malloc(PAGE_SIZE * sizeof(char));
+            p = check;
             isExist = FALSE;
-            //find which page should be evicted.
-            if ((*bm).strategy == RS_FIFO || (*bm).strategy == RS_LRU) {
-                p = FIFOandLRU(bm);
-                if ((*((*bm).mgmtData + p)).dirty) { 
-                    forcePage(bm, (*bm).mgmtData + p); 
-                }
+            break;
+        }
+
+        if (check == (*bm).numPages - 1) {      //full
+            isExist = FALSE;          
+            if ((*bm).strategy != RS_FIFO && (*bm).strategy != RS_LRU) {
+                continue;
             }
+            int *strategyNum = (int *)calloc((*bm).numPages, sizeof((*((*bm).mgmtData)).strategyRecords));
+            int least = (*bm).count;
+            int evictPageNum = INT_MIN;
+
+            for (int i = 0; i < (*bm).numPages; i++) {
+                int *flag = strategyNum + i;
+                *flag = *((*((*bm).mgmtData + i)).strategyRecords);
+                if (*(getFixCounts(bm) + i) != 0) {
+                    continue;
+                }
+                evictPageNum = least >= *(strategyNum + i)? i: evictPageNum;
+                least = least >= *(strategyNum + i) ? *(strategyNum + i): least;
+            }
+            p = evictPageNum;
+
+            if ((*((*bm).mgmtData + p)).dirty) { 
+                forcePage(bm, (*bm).mgmtData + p); 
+            }            
         }
     }
+    struct Result res = {p, isExist};
+    
+    return res;
+}
 
-    modify(bm, isExist, page, pageNum, p);    
+/*
+   pinPage pins the page with page number pageNum.
+   The buffer manager is responsible to set the pageNum field of the page handle
+   passed to the method. Similarly, the data field should point to the page frame
+   the page is stored in (the area in memory storing the content of the page).
+ */
+RC pinPage (BM_BufferPool *const bm, BM_PageHandle *const page, const PageNumber pageNum) {
+    struct Result res = check(-1, bm, page, pageNum);
+    modify(bm, res.flag, page, pageNum, res.p);    
     printf("PinPage: Successful.\n");
     return RC_OK;
 }
 
 
-
-////unpinPage unpins the page page.
-////The pageNum field of page should be used to figure out which page to unpin.
-//RC unpinPage (BM_BufferPool *const bm, BM_PageHandle *const page)
-//{
-//    // if(bm == NULL || page == NULL){
-//    //     printf("The buffer pool is illegal.");
-//    //     return RC_READ_NON_EXISTING_BUFFERPOOL;
-//    // }
-//
-//    for (int check = 0; check < (*bm).numPages; check++)
-//    {
-//        BM_PageHandle *curPage = ((*bm).mgmtData + check);
-//        if ((*curPage).pageNum == page->pageNum)
-//        {
-//            (*curPage).fixCounts--;
-//            break;
-//        }
-//    }
-//    printf("The Page has been unpinned.\n");
-//    return RC_OK;
-//}
-
-//unpinPage unpins the page page.
-//The pageNum field of page should be used to figure out which page to unpin.
-RC unpinPage (BM_BufferPool *const bm, BM_PageHandle *const page) {
-    for(int i = 0; i < (*bm).numPages; i++) {
-        if ((*((*bm).mgmtData + i)).pageNum == (*page).pageNum) {
-            (*((*bm).mgmtData + i)).fixCounts--;
-            break;
-        }
-    }
-    printf("UnpinPage: Successful.\n");
-    return RC_OK;
-}
-
-////markDirty marks a page as dirty.
-//RC markDirty (BM_BufferPool *const bm, BM_PageHandle *const page)
-//{
-//    // if(bm == NULL || page == NULL){
-//    //     printf("The buffer pool is illegal.");
-//    //     return RC_READ_NON_EXISTING_BUFFERPOOL;
-//    // }
-//
-//    int check;
-//    for (check = 0; check < ((*bm).numPages); check++)
-//    {
-//        BM_PageHandle *curPage = ((*bm).mgmtData + check);
-//        if ((*curPage).pageNum == page->pageNum)
-//        {
-//            (*curPage).dirty = 1;
-//            page->dirty = 1;
-//            break;
-//       }
-//    }
-//    printf("The dirty page has been marked.\n");
-//    return RC_OK;
-//}
-
-//markDirty marks a page as dirty.
-RC markDirty (BM_BufferPool *const bm, BM_PageHandle *const page) {
-    for(int i = 0; i < (*bm).numPages; i++) {
-        if ((*((*bm).mgmtData + i)).pageNum == (*page).pageNum) {
-            (*((*bm).mgmtData + i)).dirty = true;
-            (*page).dirty = true;
-            break;
-        }
-    }
-    printf("MarkDirty: Successful.\n");
-    return RC_OK;
-}
-
-////forcePage should write the current content of the page back to the page file on disk.
-//RC forcePage (BM_BufferPool *const bm, BM_PageHandle *const page)
-//{
-//    FILE *curFile = fopen((*bm).pageFile, "rb+");
-//    int pageNum = page->pageNum;
-//    fseek(curFile, pageNum*PAGE_SIZE, SEEK_SET);
-//    fwrite(page->data, PAGE_SIZE, 1, curFile);
-//    ((*bm).writeNum)++;
-//    fclose(curFile);
-//
-//    int check;
-//    for (check = 0; check < ((*bm).numPages); check++)
-//    {
-//        BM_PageHandle *curPage = ((*bm).mgmtData + check);
-//        if ((*curPage).pageNum == pageNum)
-//        {
-//            (*curPage).dirty = 0;
-//            break;
-//        }
-//    }
-//    page->dirty = 0;
-//    printf("Current content of the page written back to the disk successfully.\n");
-//    return RC_OK;
-//}
-
-//forcePage should write the current content of the page back to the page file on disk.
-RC forcePage (BM_BufferPool *const bm, BM_PageHandle *const page) {
-    FILE *curFile = fopen((*bm).pageFile, "rb+");
-    int pageNum = (*page).pageNum;
-    fseek(curFile, pageNum*PAGE_SIZE, SEEK_SET);
-    fwrite((*page).data, PAGE_SIZE, 1, curFile);
-    fclose(curFile);
-    (*bm).writeNum++;
-    for(int i = 0; i < (*bm).numPages; i++) {       
-        if ((*((*bm).mgmtData + i)).pageNum != pageNum) continue;
-        (*((*bm).mgmtData + i)).dirty = false;
-    }
-    printf("ForcePage: Successful.\n");
-    return RC_OK;
-}
-
-
-/*The getFrameContents function returns an array of PageNumbers
-where the ith element is the number of the page stored in the ith page frame.*/
+/*
+    The getFrameContents function returns an array of PageNumbers
+    where the ith element is the number of the page stored in the ith page frame.
+*/
 PageNumber *getFrameContents (BM_BufferPool *const bm) {
     PageNumber *frameContents = (PageNumber*)malloc(sizeof(PageNumber) * ((*bm).numPages));
     for(int i = 0; i < (*bm).numPages; i++) {
@@ -337,22 +245,11 @@ PageNumber *getFrameContents (BM_BufferPool *const bm) {
     return frameContents;
 }
 
-///*The getDirtyFlags function returns an array of bools (of size numPages)
-//where the ith element is TRUE if the page stored in the ith page frame is dirty. */
-//bool *getDirtyFlags (BM_BufferPool *const bm) {
-//    BM_PageHandle *frame= (*bm).mgmtData;
-//    bool *dirtyFlags = malloc(sizeof(bool) * ((*bm).numPages));
-//    int i = 0;
 
-//    while(i < (*bm).numPages) {
-//        dirtyFlags[i] = (frame + i)->dirty;
-//        i++;
-//    }
-//    return dirtyFlags;
-//}
-
-/*The getDirtyFlags function returns an array of bools (of size numPages)
-where the ith element is TRUE if the page stored in the ith page frame is dirty. */
+/*
+    The getDirtyFlags function returns an array of bools (of size numPages)
+    where the ith element is TRUE if the page stored in the ith page frame is dirty. 
+*/
 bool *getDirtyFlags (BM_BufferPool *const bm) {
     bool *dirtyFlags = malloc(sizeof(bool) * ((*bm).numPages));
     for(int i = 0; i < (*bm).numPages; i++) dirtyFlags[i] = (*((*bm).mgmtData + i)).dirty;
@@ -361,25 +258,11 @@ bool *getDirtyFlags (BM_BufferPool *const bm) {
 }
 
 
-///*The getFixCounts function returns an array of ints (of size numPages)
-// *where the ith element is the fix count of the page stored
-// *in the ith page frame. Return 0 for empty page frames.*/
-//int *getFixCounts (BM_BufferPool *const bm) {
-//    // if(bm == NULL){
-//    //     printf("The buffer pool is illegal.");
-//    //     return RC_READ_NON_EXISTING_BUFFERPOOL;
-//    // }
-//    BM_PageHandle *frame = (*bm).mgmtData;
-//    int *fixCounts = malloc(sizeof(int) * ((*bm).numPages));
-//
-//    int i = 0;
-//    while(i < (*bm).numPages) {
-//        fixCounts[i] = (frame + i)->fixCounts;
-//        i++;
-//    }
-//    return fixCounts;
-//}
-
+/*
+    The getFixCounts function returns an array of ints (of size numPages)
+    where the ith element is the fix count of the page stored
+    in the ith page frame. Return 0 for empty page frames.
+*/
 int *getFixCounts (BM_BufferPool *const bm) {
     int *fixCounts = malloc(sizeof(int) * ((*bm).numPages));
     for(int i = 0; i < (*bm).numPages; i++) fixCounts[i] = (*((*bm).mgmtData + i)).fixCounts;
