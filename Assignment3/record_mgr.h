@@ -5,23 +5,11 @@
 #include "expr.h"
 #include "tables.h"
 
-
 // Bookkeeping for scans
-// typedef struct RM_ScanHandle
-// {
-// 	RM_TableData *rel;
-// 	void *mgmtData;
-// } RM_ScanHandle;
-
-
 typedef struct RM_ScanHandle
 {
 	RM_TableData *rel;
-    Expr *expr; //add to make implement easier
-    int currentPage; //add to make implement easier
-    int currentSlot; //add to make implement easier
-    void *mgmtData;
-    
+	void *mgmtData;
 } RM_ScanHandle;
 
 // table and manager

@@ -2,8 +2,6 @@
 #define TABLES_H
 
 #include "dt.h"
-#include "storage_mgr.h" //
-#include "buffer_mgr.h"  //
 
 // Data Types, Records, and Schemas
 typedef enum DataType {
@@ -46,19 +44,10 @@ typedef struct Schema
 } Schema;
 
 // TableData: Management Structure for a Record Manager to handle one relation
-// typedef struct RM_TableData
-// {
-// 	char *name;
-// 	Schema *schema;
-// 	void *mgmtData;
-// } RM_TableData;
-
 typedef struct RM_TableData
 {
 	char *name;
 	Schema *schema;
-    BM_BufferPool *bm; //add to make implement easier
-    SM_FileHandle *fh; //add to make implement easier
 	void *mgmtData;
 } RM_TableData;
 
