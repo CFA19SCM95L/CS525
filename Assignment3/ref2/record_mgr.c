@@ -4,6 +4,7 @@
 #include "tables.h"
 #include "buffer_mgr.h"
 #include "storage_mgr.h"
+/*Work: only if delete test: L576*/
 
 void schemaReadFromFile(RM_TableData *, BM_PageHandle *);
 char * readSchemaName(char *);
@@ -1202,3 +1203,5 @@ void printPageData(char *pageData){
     printf("\n exiting ");
     printf("\n exiting ");
 }
+
+

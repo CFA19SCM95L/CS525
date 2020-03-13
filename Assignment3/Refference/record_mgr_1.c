@@ -4,6 +4,7 @@
 #include "tables.h"
 #include "buffer_mgr.h"
 #include "storage_mgr.h"
+/*Fail: test: L576*/
 
 void schemaReadFromFile(RM_TableData *, BM_PageHandle *);
 char * readSchemaName(char *);

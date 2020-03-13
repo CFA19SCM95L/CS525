@@ -5,6 +5,9 @@
 #include "storage_mgr.h"
 #include "record_mgr.h"
 #include <ctype.h>
+
+
+/*Fail : test_Line 154*/
 RC RC_ERROR = 11;
 
 //Datastructure to maintain the state data for the Record manager
