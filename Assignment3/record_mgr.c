@@ -14,6 +14,9 @@ RC RC_RM_RECORD_NOT_EXIST = 101;
 /*
 Change file: table.h record_mgr.h
 */
+RC addMetaDataBlock();
+int getFileMetaDataSize();
+
 
 /*******************************************table and manager****************************************************/
 RC initRecordManager (void *mgmtData){
