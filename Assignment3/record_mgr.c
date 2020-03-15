@@ -4,442 +4,447 @@
 #include "tables.h"
 #include "buffer_mgr.h"
 #include "storage_mgr.h"
-/*Work: only if delete test: L576*/
+#include "assist.h"
+/*
+    Work: only if delete test: L576
+*/
 
-void schemaReadFromFile(RM_TableData *, BM_PageHandle *);
-char * readSchemaName(char *);
-char * readAttributeMeataData(char *);
-int readTotalKeyAttr(char *);
-char * readAttributeKeyData(char *);
-char * getSingleAtrData(char *, int );
-char ** getAtrributesNames(char *, int );
-char * extractName(char *);
-int extractDataType(char *);
-int * getAtributesDtType(char *, int );
-int extractTypeLength(char *data);
-int * getAtributeSize(char *scmData, int numAtr);
-int * extractKeyDt(char *data,int keyNum);
-int * extractFirstFreePageSlot(char *);
-char * readFreePageSlotData(char *);
-int getAtrOffsetInRec(Schema *, int );
-
-int tombStonedRIDsList[10000];//10000 is biggest numInserts Value
-
-RC  RC_PIN_PAGE_FAILED = 111;
-RC RC_UNPIN_PAGE_FAILED = 112;
-RC RC_MARK_DIRTY_FAILED = 113;
-RC RC_BUFFER_SHUTDOWN_FAILED = 114;
-RC  RC_NULL_IP_PARAM = 115;
-RC RC_IVALID_PAGE_SLOT_NUM = 116;
-RC  RC_FILE_DESTROY_FAILED = 117;
-RC  RC_SCHEMA_NOT_INIT = 118;
-RC  RC_MELLOC_MEM_ALLOC_FAILED = 119;
-
-
-
-typedef struct TableMgmt_info{
-    int sizeOfRec;
-    int totalRecordInTable;
-    int blkFctr;
-    RID firstFreeLoc;
-    RM_TableData *rm_tbl_data;
-    BM_PageHandle pageHandle;
-    BM_BufferPool bufferPool;
-}TableMgmt_info;
-
-typedef struct RM_SCAN_MGMT{
-    RID recID;
-    Expr *cond;
-    int count;  // no of records scaned
-    RM_TableData *rm_tbl_data;
-    BM_PageHandle rm_pageHandle;
-    BM_BufferPool rm_bufferPool;
-}RM_SCAN_MGMT;
-
+//Put structure inside assist.h
 
 TableMgmt_info tblmgmt_info;
 RM_SCAN_MGMT rmScanMgmt;
 SM_FileHandle fh;
 SM_PageHandle ph;
+
 /**
- *Initialize Storage manager
- * @param mgmtData
- * @return RC_OK
- */
+    Initialize Storage manager
+*/
 RC initRecordManager (void *mgmtData){
-	
     initStorageManager();
-    printf("*******************************Record manager Initialized********************************");
-    
-	for(int j=0;j<10000;j++)
-		tombStonedRIDsList[j]= -99;
+    printf("Init Record Manage: Successed ...\n"); 
 	return RC_OK;
 }
-/**
- * free the memory associated with buffer manager
- * @return RC_OK
- */
-RC shutdownRecordManager (){
-    if(ph != ((char *)0)){
-        free(ph);
-    }
-    printf(" \n ==============Shutdown record manager success=====================");
+/*
+    free the memory associated with buffer manager
+*/
+RC shutdownRecordManager (){  
+    free(ph);
+    printf("Shut down Record Manager: Successed ...\n");
     return RC_OK;
 }
 
-/**
- *
- *  All information/Metadata about the table will be written to page 0;
- * @param name : name of table. Table with this file name will be created
- * @param schema : schema contains all the attribute, data type, length of each field, keys needed tpo create table
- * @return : RC_OK
- *
- */
+/*
+    All information/Metadata about the table will be written to page 0;
+*/
+// RC createTable (char *name, Schema *schema){
+
+//     if(createPageFile(name) != RC_OK){
+//         return 1;
+//     }
+//     ph = (SM_PageHandle) malloc(PAGE_SIZE);
+//     char tableMetadata[PAGE_SIZE];
+//     memset(tableMetadata,'\0',PAGE_SIZE);
+//     sprintf(tableMetadata,"%s|",name);
+//     int recordSize = getRecordSize(schema);
+//     sprintf(tableMetadata+ strlen(tableMetadata),"%d[",schema->numAttr);
+//     for(int i=0; i<schema->numAttr; i++){
+//         sprintf(tableMetadata+ strlen(tableMetadata),"(%s:%d~%d)",schema->attrNames[i],schema->dataTypes[i],schema->typeLength[i]);
+//     }
+//     sprintf(tableMetadata+ strlen(tableMetadata),"]%d{",schema->keySize);
+//     for(int i=0; i<schema->keySize; i++){
+//         sprintf(tableMetadata+ strlen(tableMetadata),"%d",schema->keyAttrs[i]);
+//         if(i<(schema->keySize-1))
+//             strcat(tableMetadata,":");
+//     }
+//     strcat(tableMetadata,"}");
+//     tblmgmt_info.firstFreeLoc.page =1;
+//     tblmgmt_info.firstFreeLoc.slot =0;
+//     tblmgmt_info.totalRecordInTable =0;
+//     sprintf(tableMetadata+ strlen(tableMetadata),"$%d:%d$",tblmgmt_info.firstFreeLoc.page,tblmgmt_info.firstFreeLoc.slot);
+//     sprintf(tableMetadata+ strlen(tableMetadata),"?%d?",tblmgmt_info.totalRecordInTable);
+//     memmove(ph,tableMetadata,PAGE_SIZE);
+//     if (openPageFile(name, &fh) != RC_OK) {
+//         return 1;
+//     }
+//     if (writeBlock(0, &fh, ph)!= RC_OK) {
+//         return 1;
+//     }
+//     free(ph);
+//     return RC_OK;
+// }
+
 RC createTable (char *name, Schema *schema){
-
-    if(createPageFile(name) != RC_OK){
-        return 1;
-    }
+    if (!schema)    return RC_ERROR;
+    if (!name)      return RC_ERROR;
+    createPageFile(name);
     ph = (SM_PageHandle) malloc(PAGE_SIZE);
-
     char tableMetadata[PAGE_SIZE];
     memset(tableMetadata,'\0',PAGE_SIZE);
-
-    sprintf(tableMetadata,"%s|",name);
-
-    int recordSize = getRecordSize(schema);
-    sprintf(tableMetadata+ strlen(tableMetadata),"%d[",schema->numAttr);
-
-    for(int i=0; i<schema->numAttr; i++){
-        sprintf(tableMetadata+ strlen(tableMetadata),"(%s:%d~%d)",schema->attrNames[i],schema->dataTypes[i],schema->typeLength[i]);
+    strcat(tableMetadata, name);
+    strcat(tableMetadata, "|");
+    sprintf(tableMetadata+ strlen(tableMetadata),"%d[",(*schema).numAttr);
+    for(int i=0; i<(*schema).numAttr; i++){
+        sprintf(tableMetadata+ strlen(tableMetadata),"(%s:%d~%d)",(*schema).attrNames[i],(*schema).dataTypes[i],(*schema).typeLength[i]);
     }
-    sprintf(tableMetadata+ strlen(tableMetadata),"]%d{",schema->keySize);
-
-    for(int i=0; i<schema->keySize; i++){
-        sprintf(tableMetadata+ strlen(tableMetadata),"%d",schema->keyAttrs[i]);
-        if(i<(schema->keySize-1))
+    sprintf(tableMetadata+ strlen(tableMetadata),"]%d{",(*schema).keySize);
+    for(int i=0; i<(*schema).keySize; i++){
+        sprintf(tableMetadata+ strlen(tableMetadata),"%d",(*schema).keyAttrs[i]);
+        if(i<((*schema).keySize-1))
             strcat(tableMetadata,":");
     }
     strcat(tableMetadata,"}");
-
     tblmgmt_info.firstFreeLoc.page =1;
     tblmgmt_info.firstFreeLoc.slot =0;
     tblmgmt_info.totalRecordInTable =0;
-
     sprintf(tableMetadata+ strlen(tableMetadata),"$%d:%d$",tblmgmt_info.firstFreeLoc.page,tblmgmt_info.firstFreeLoc.slot);
-
     sprintf(tableMetadata+ strlen(tableMetadata),"?%d?",tblmgmt_info.totalRecordInTable);
-
     memmove(ph,tableMetadata,PAGE_SIZE);
 
-    if (openPageFile(name, &fh) != RC_OK) {
-        return 1;
-    }
-
-    if (writeBlock(0, &fh, ph)!= RC_OK) {
-        return 1;
-    }
-
-
+    openPageFile(name, &fh);
+    writeBlock(0, &fh, ph);
     free(ph);
+    printf("Create Table: Successed ...\n");
     return RC_OK;
 }
-/***
- *
- *  Using buffer manager we pin page 0 and read data from page 0. Data parsed by schemaReadFromFile method and value initialied in rel
- * @param rel : all values in rel will be intitaialed after table reaed from page 0;
- * @param name : name of table to
- * @return
- */
+/*
+    Using buffer manager we pin page 0 and read data from page 0. Data parsed by schemaReadFromFile method and value initialied in rel
+*/
+// RC openTable (RM_TableData *rel, char *name){
+//     ph = (SM_PageHandle) malloc(PAGE_SIZE);
+//     BM_PageHandle *h = &tblmgmt_info.pageHandle;
+//     BM_BufferPool *bm = &tblmgmt_info.bufferPool;
+//     initBufferPool(bm, name, 3, RS_FIFO, NULL);
+//     if(pinPage(bm, h, 0) != RC_OK){
+//         RC_message = "Pin page failed ";
+//         return RC_PIN_PAGE_FAILED;
+//     }
+//     schemaReadFromFile(rel,h);
+//     if(unpinPage(bm,h) != RC_OK){
+//         RC_message = "Unpin page failed ";
+//         return RC_UNPIN_PAGE_FAILED;
+//     }
+//     return RC_OK;
+// }
+
 RC openTable (RM_TableData *rel, char *name){
+    if (!name)  return RC_ERROR;
+    if (!rel)   return RC_ERROR;
+    
     ph = (SM_PageHandle) malloc(PAGE_SIZE);
-
-    BM_PageHandle *h = &tblmgmt_info.pageHandle;
-
-    BM_BufferPool *bm = &tblmgmt_info.bufferPool;
-
-    initBufferPool(bm, name, 3, RS_FIFO, NULL);
-
-    if(pinPage(bm, h, 0) != RC_OK){
-        RC_message = "Pin page failed ";
-        return RC_PIN_PAGE_FAILED;
-    }
-
-
-    schemaReadFromFile(rel,h);
-
-    if(unpinPage(bm,h) != RC_OK){
-        RC_message = "Unpin page failed ";
-        return RC_UNPIN_PAGE_FAILED;
-    }
-
+    initBufferPool(&tblmgmt_info.bufferPool, name, 3, RS_FIFO, NULL);
+    pinPage(&tblmgmt_info.bufferPool, &tblmgmt_info.pageHandle, 0);
+    schemaReadFromFile(rel, &tblmgmt_info.pageHandle);
+    unpinPage(&tblmgmt_info.bufferPool,&tblmgmt_info.pageHandle);
+    printf("Open Table: Successed ...\n");
     return RC_OK;
 }
-/***
- * write all information back to page 0. This would override exsiting data.
- * @param rel contais all imformation related to schema
- * @return
- */
+/*
+    write all information back to page 0. This would override exsiting data.
+*/
+// RC closeTable (RM_TableData *rel){
+//     char tableMetadata[PAGE_SIZE];
+//     BM_PageHandle *page = &tblmgmt_info.pageHandle;
+//     BM_BufferPool *bm = &tblmgmt_info.bufferPool;
+//     char *pageData;   //user for convinient to hangle page data , do not use malloc and free. its is pointer.
+//     memset(tableMetadata,'\0',PAGE_SIZE);
+//     sprintf(tableMetadata,"%s|",rel->name);
+//     int recordSize = tblmgmt_info.sizeOfRec;
+//     sprintf(tableMetadata+ strlen(tableMetadata),"%d[",rel->schema->numAttr);
+//     for(int i=0; i<rel->schema->numAttr; i++){
+//         sprintf(tableMetadata+ strlen(tableMetadata),"(%s:%d~%d)",rel->schema->attrNames[i],rel->schema->dataTypes[i],rel->schema->typeLength[i]);
+//     }
+//     sprintf(tableMetadata+ strlen(tableMetadata),"]%d{",rel->schema->keySize);
+//     for(int i=0; i<rel->schema->keySize; i++){
+//         sprintf(tableMetadata+ strlen(tableMetadata),"%d",rel->schema->keyAttrs[i]);
+//         if(i<(rel->schema->keySize-1))
+//             strcat(tableMetadata,":");
+//     }
+//     strcat(tableMetadata,"}");
+//     sprintf(tableMetadata+ strlen(tableMetadata),"$%d:%d$",tblmgmt_info.firstFreeLoc.page,tblmgmt_info.firstFreeLoc.slot);
+//     sprintf(tableMetadata+ strlen(tableMetadata),"?%d?",tblmgmt_info.totalRecordInTable);
+
+//     if(pinPage(bm,page,0) != RC_OK){
+//         RC_message = "Pin page failed  ";
+//         return RC_PIN_PAGE_FAILED;
+//     }
+//     memmove(page->data,tableMetadata,PAGE_SIZE);
+//     if( markDirty(bm,page)!=RC_OK){
+//         RC_message = "Page 0 Mark Dirty Failed";
+//         return RC_MARK_DIRTY_FAILED;
+//     }
+//     if(  unpinPage(bm,page)!=RC_OK){
+//         RC_message = "Unpin Page 0 failed Failed";
+//         return RC_UNPIN_PAGE_FAILED;
+//     }
+//     if(shutdownBufferPool(bm) != RC_OK){
+//         RC_message = "Shutdown Buffer Pool Failed";
+//         return RC_BUFFER_SHUTDOWN_FAILED;
+//     }
+//     return RC_OK;
+// }
+
 RC closeTable (RM_TableData *rel){
+    if (!rel)   return RC_ERROR;
     char tableMetadata[PAGE_SIZE];
-    BM_PageHandle *page = &tblmgmt_info.pageHandle;
-    BM_BufferPool *bm = &tblmgmt_info.bufferPool;
-    char *pageData;   //user for convinient to hangle page data , do not use malloc and free. its is pointer.
     memset(tableMetadata,'\0',PAGE_SIZE);
-
-    sprintf(tableMetadata,"%s|",rel->name);
-
-    int recordSize = tblmgmt_info.sizeOfRec;
-    sprintf(tableMetadata+ strlen(tableMetadata),"%d[",rel->schema->numAttr);
-
-    for(int i=0; i<rel->schema->numAttr; i++){
-        sprintf(tableMetadata+ strlen(tableMetadata),"(%s:%d~%d)",rel->schema->attrNames[i],rel->schema->dataTypes[i],rel->schema->typeLength[i]);
+    sprintf(tableMetadata,"%s|",(*rel).name);
+    sprintf(tableMetadata+ strlen(tableMetadata),"%d[",(*(*rel).schema).numAttr);
+    for(int i=0; i<(*(*rel).schema).numAttr; i++){
+        sprintf(tableMetadata+ strlen(tableMetadata),"(%s:%d~%d)",(*(*rel).schema).attrNames[i],(*(*rel).schema).dataTypes[i],(*(*rel).schema).typeLength[i]);
     }
-    sprintf(tableMetadata+ strlen(tableMetadata),"]%d{",rel->schema->keySize);
-
-    for(int i=0; i<rel->schema->keySize; i++){
-        sprintf(tableMetadata+ strlen(tableMetadata),"%d",rel->schema->keyAttrs[i]);
-        if(i<(rel->schema->keySize-1))
-            strcat(tableMetadata,":");
+    sprintf(tableMetadata+ strlen(tableMetadata),"]%d{",(*(*rel).schema).keySize);
+    for(int i=0; i<(*(*rel).schema).keySize; i++){
+        sprintf(tableMetadata+ strlen(tableMetadata),"%d",(*(*rel).schema).keyAttrs[i]);
+        if(i<((*(*rel).schema).keySize-1))  strcat(tableMetadata,":");
     }
     strcat(tableMetadata,"}");
-
     sprintf(tableMetadata+ strlen(tableMetadata),"$%d:%d$",tblmgmt_info.firstFreeLoc.page,tblmgmt_info.firstFreeLoc.slot);
-
     sprintf(tableMetadata+ strlen(tableMetadata),"?%d?",tblmgmt_info.totalRecordInTable);
-
-
-
-    if(pinPage(bm,page,0) != RC_OK){
-        RC_message = "Pin page failed  ";
-        return RC_PIN_PAGE_FAILED;
-    }
-
-    memmove(page->data,tableMetadata,PAGE_SIZE);
-
-    if( markDirty(bm,page)!=RC_OK){
-        RC_message = "Page 0 Mark Dirty Failed";
-        return RC_MARK_DIRTY_FAILED;
-    }
-
-    if(  unpinPage(bm,page)!=RC_OK){
-        RC_message = "Unpin Page 0 failed Failed";
-        return RC_UNPIN_PAGE_FAILED;
-    }
-
-
-    if(shutdownBufferPool(bm) != RC_OK){
-        RC_message = "Shutdown Buffer Pool Failed";
-        return RC_BUFFER_SHUTDOWN_FAILED;
-    }
-
+    pinPage(&tblmgmt_info.bufferPool,&tblmgmt_info.pageHandle,0);
+    memmove(tblmgmt_info.pageHandle.data,tableMetadata,PAGE_SIZE);
+    markDirty(&tblmgmt_info.bufferPool,&tblmgmt_info.pageHandle);
+    unpinPage(&tblmgmt_info.bufferPool,&tblmgmt_info.pageHandle);
+    shutdownBufferPool(&tblmgmt_info.bufferPool);
+    printf("Close Table: Successed ...\n");
     return RC_OK;
 }
-/***
- *
- *Will delete the table and all data associated with it.This mwthod will call destroyPageFile of storage manager
- * @param name : name of table to br deleted.
- * @return RC_OK
- */
+/*
+    Will delete the table and all data associated with it.This mwthod will call destroyPageFile of storage manager
+*/
+// RC deleteTable (char *name){
+//     BM_BufferPool *bm = &tblmgmt_info.bufferPool;
+//     if(name == ((char *)0)){
+//         RC_message = "Table name can not be null ";
+//         return RC_NULL_IP_PARAM;
+//     }
+//     if(destroyPageFile(name) != RC_OK){
+//         RC_message = "Destroyt Page File Failed";
+//         return RC_FILE_DESTROY_FAILED;
+//     }
+//     return RC_OK;
+// }
+
 RC deleteTable (char *name){
-    BM_BufferPool *bm = &tblmgmt_info.bufferPool;
-    if(name == ((char *)0)){
-        RC_message = "Table name can not be null ";
-        return RC_NULL_IP_PARAM;
-    }
-
-    if(destroyPageFile(name) != RC_OK){
-        RC_message = "Destroyt Page File Failed";
-        return RC_FILE_DESTROY_FAILED;
-    }
-
+    if (!name)  return RC_ERROR;
+    destroyPageFile(name);
+    printf("Delete Table: Successed ...\n");
     return RC_OK;
 }
-/**
- *  Returns total numbers of records in table
- * @param rel contais all imformation related to schema
- * @return total no of records in table
- */
-int getNumTuples (RM_TableData *rel){
+/*
+    Returns total numbers of records in table
+*/
+// int getNumTuples (RM_TableData *rel){
+//     return tblmgmt_info.totalRecordInTable;
+// }
 
+int getNumTuples (RM_TableData *rel){
+    if (!rel)   return RC_ERROR;
+    printf("Get NumTuples: Successed ...\n");
     return tblmgmt_info.totalRecordInTable;
 }
 
 
 
 
-/***
- *  This will insert the record passed in input parameter. Record will be inserted at avialable page and slot.
- *  Next available page and slot will be updated after record inserted into file.
- *  Next availble page amd slot has mentioned in  firstFreeLoc of RID declared in TableMgmt_info
- * @param rel : contais all imformation related to schema
- * @param record : record to be inserted into file.
- * @return RC code
- */
+/*
+    This will insert the record passed in input parameter. Record will be inserted at avialable page and slot.
+    Next available page and slot will be updated after record inserted into file.
+    Next availble page amd slot has mentioned in  firstFreeLoc of RID declared in TableMgmt_info
+*/
+// RC insertRecord (RM_TableData *rel, Record *record){
+//     char *pageData;   //user for convinient to hangle page data , do not use malloc and free. its is pointer.
+//     int recordSize = tblmgmt_info.sizeOfRec;
+//     int freePageNum = tblmgmt_info.firstFreeLoc.page;  // record will be inserted at this page number
+//     int freeSlotNum = tblmgmt_info.firstFreeLoc.slot;  // record will be inserted at this slot
+//     int blockfactor = tblmgmt_info.blkFctr;
+//     BM_PageHandle *page = &tblmgmt_info.pageHandle;
+//     BM_BufferPool *bm = &tblmgmt_info.bufferPool;
+//     if(freePageNum < 1 || freeSlotNum < 0){
+//         RC_message = "Invalid page|Slot number ";
+//         return RC_IVALID_PAGE_SLOT_NUM;
+//     }
+//     if(pinPage(bm,page,freePageNum) != RC_OK){
+//         RC_message = "Pin page failed  ";
+//         return RC_PIN_PAGE_FAILED;
+//     }
+//     pageData = page->data;  // assigning pointer from h to pagedata for convineint
+//     int offset =  freeSlotNum * recordSize; //staring postion of record; slot Start from 0 position
+//     record->data[recordSize-1]='$';
+//     memcpy(pageData+offset, record->data, recordSize);
+//     if( markDirty(bm,page)!=RC_OK){
+//         RC_message = "Page Mark Dirty Failed";
+//         return RC_MARK_DIRTY_FAILED;
+//     }
+//     if(  unpinPage(bm,page)!=RC_OK){
+//         RC_message = "Unpin Page failed Failed";
+//         return RC_UNPIN_PAGE_FAILED;
+//     }
+//     //use while retring record back
+//     record->id.page = freePageNum;  // storing page number for record
+//     record->id.slot = freeSlotNum;  // storing slot number for record
+//     tblmgmt_info.totalRecordInTable = tblmgmt_info.totalRecordInTable +1;
+//     if(freeSlotNum ==(blockfactor-1)){
+//         tblmgmt_info.firstFreeLoc.page=freePageNum+1;
+//         tblmgmt_info.firstFreeLoc.slot =0;
+//     }else{
+//         tblmgmt_info.firstFreeLoc.slot = freeSlotNum +1;
+//     }
+//     return RC_OK;
+// }
+
 RC insertRecord (RM_TableData *rel, Record *record){
-
-    char *pageData;   //user for convinient to hangle page data , do not use malloc and free. its is pointer.
-    int recordSize = tblmgmt_info.sizeOfRec;
-    int freePageNum = tblmgmt_info.firstFreeLoc.page;  // record will be inserted at this page number
-    int freeSlotNum = tblmgmt_info.firstFreeLoc.slot;  // record will be inserted at this slot
-    int blockfactor = tblmgmt_info.blkFctr;
-    BM_PageHandle *page = &tblmgmt_info.pageHandle;
-    BM_BufferPool *bm = &tblmgmt_info.bufferPool;
-
-    if(freePageNum < 1 || freeSlotNum < 0){
-        RC_message = "Invalid page|Slot number ";
-        return RC_IVALID_PAGE_SLOT_NUM;
-    }
-
-    if(pinPage(bm,page,freePageNum) != RC_OK){
-        RC_message = "Pin page failed  ";
-        return RC_PIN_PAGE_FAILED;
-    }
-
-
-    pageData = page->data;  // assigning pointer from h to pagedata for convineint
-
-    int offset =  freeSlotNum * recordSize; //staring postion of record; slot Start from 0 position
-
-    record->data[recordSize-1]='$';
-    memcpy(pageData+offset, record->data, recordSize);
-
-    if( markDirty(bm,page)!=RC_OK){
-        RC_message = "Page Mark Dirty Failed";
-        return RC_MARK_DIRTY_FAILED;
-    }
-
-    if(  unpinPage(bm,page)!=RC_OK){
-        RC_message = "Unpin Page failed Failed";
-        return RC_UNPIN_PAGE_FAILED;
-    }
-
-    //use while retring record back
-
-    record->id.page = freePageNum;  // storing page number for record
-    record->id.slot = freeSlotNum;  // storing slot number for record
-
-
-    tblmgmt_info.totalRecordInTable = tblmgmt_info.totalRecordInTable +1;
-
-    if(freeSlotNum ==(blockfactor-1)){
-        tblmgmt_info.firstFreeLoc.page=freePageNum+1;
-        tblmgmt_info.firstFreeLoc.slot =0;
+    if (!record)    return RC_ERROR;
+    if (!rel)   return RC_ERROR;
+    pinPage(&tblmgmt_info.bufferPool,&tblmgmt_info.pageHandle,tblmgmt_info.firstFreeLoc.page);
+    (*record).data[tblmgmt_info.sizeOfRec-1]='$';
+    memcpy(tblmgmt_info.pageHandle.data+(tblmgmt_info.firstFreeLoc.slot * tblmgmt_info.sizeOfRec), (*record).data, tblmgmt_info.sizeOfRec);
+    markDirty(&tblmgmt_info.bufferPool,&tblmgmt_info.pageHandle);
+    unpinPage(&tblmgmt_info.bufferPool,&tblmgmt_info.pageHandle);
+    (*record).id.page = tblmgmt_info.firstFreeLoc.page;  // storing page number for record
+    (*record).id.slot = tblmgmt_info.firstFreeLoc.slot;  // storing slot number for record
+    tblmgmt_info.totalRecordInTable++;
+    if(tblmgmt_info.firstFreeLoc.slot ==(tblmgmt_info.blkFctr-1)){
+        tblmgmt_info.firstFreeLoc.page++;
+        tblmgmt_info.firstFreeLoc.slot = 0;
     }else{
-        tblmgmt_info.firstFreeLoc.slot = freeSlotNum +1;
+        tblmgmt_info.firstFreeLoc.slot++;
     }
+    printf("Insert Record: Successed ...\n");
     return RC_OK;
 }
-/**
- * This method will delete the record passed in input parameter id
- * @param rel : contais all imformation related to schema
- * @param id : ID contains page number and slot number
- * @return RC code
- */
+/*
+    This method will delete the record passed in input parameter id
+*/
+// RC deleteRecord (RM_TableData *rel, RID id){
+//     int recordSize = tblmgmt_info.sizeOfRec;
+//     int recPageNum = id.page;  // record will be searched at this page number
+//     int recSlotNum = id.slot;  // record will be searched at this slot
+//     int blockfactor = tblmgmt_info.blkFctr;
+//     BM_PageHandle *page = &tblmgmt_info.pageHandle;
+//     BM_BufferPool *bm = &tblmgmt_info.bufferPool;
+//     if(pinPage(bm,page,recPageNum) != RC_OK){
+//         RC_message = "Pin page failed  ";
+//         return RC_PIN_PAGE_FAILED;
+//     }
+//     int recordOffet = recSlotNum * recordSize;
+//     memset(page->data+recordOffet, '\0', recordSize);  // setting values to null
+//     tblmgmt_info.totalRecordInTable = tblmgmt_info.totalRecordInTable -1;  // reducing number of record by 1 after deleting record
+//     if(markDirty(bm,page)!=RC_OK){
+//         RC_message = "Page Mark Dirty Failed";
+//         return RC_MARK_DIRTY_FAILED;
+//     }
+//     if(unpinPage(bm,page)!=RC_OK){
+//         RC_message = "Unpin Page failed Failed";
+//         return RC_UNPIN_PAGE_FAILED;
+//     }
+//     return RC_OK;
+// }
+
 RC deleteRecord (RM_TableData *rel, RID id){
-    int recordSize = tblmgmt_info.sizeOfRec;
-    int recPageNum = id.page;  // record will be searched at this page number
-    int recSlotNum = id.slot;  // record will be searched at this slot
-    int blockfactor = tblmgmt_info.blkFctr;
-    BM_PageHandle *page = &tblmgmt_info.pageHandle;
-    BM_BufferPool *bm = &tblmgmt_info.bufferPool;
-
-
-    if(pinPage(bm,page,recPageNum) != RC_OK){
-        RC_message = "Pin page failed  ";
-        return RC_PIN_PAGE_FAILED;
-    }
-
-    int recordOffet = recSlotNum * recordSize;
-
-    memset(page->data+recordOffet, '\0', recordSize);  // setting values to null
-
-    tblmgmt_info.totalRecordInTable = tblmgmt_info.totalRecordInTable -1;  // reducing number of record by 1 after deleting record
-
-    if(markDirty(bm,page)!=RC_OK){
-        RC_message = "Page Mark Dirty Failed";
-        return RC_MARK_DIRTY_FAILED;
-    }
-    if(unpinPage(bm,page)!=RC_OK){
-        RC_message = "Unpin Page failed Failed";
-        return RC_UNPIN_PAGE_FAILED;
-    }
-
+    if (!rel)   return RC_ERROR;
+    pinPage(&tblmgmt_info.bufferPool,&tblmgmt_info.pageHandle,id.page);
+    memset(tblmgmt_info.pageHandle.data+(id.slot * tblmgmt_info.sizeOfRec), '\0', tblmgmt_info.sizeOfRec);  // setting values to null
+    tblmgmt_info.totalRecordInTable--;  // reducing number of record by 1 after deleting record
+    markDirty(&tblmgmt_info.bufferPool,&tblmgmt_info.pageHandle);
+    unpinPage(&tblmgmt_info.bufferPool,&tblmgmt_info.pageHandle);
+    printf("Delete Record: Successed ...\n");
     return RC_OK;
 }
-/**
- * Update record will  update the perticular record at page and slot metioned in record
- * @param rel : : contais all imformation related to schema
- * @param record : new record to be updated into file.
- * @return : RC Code
- */
+/*
+    Update record will  update the perticular record at page and slot metioned in record
+*/
+// RC updateRecord (RM_TableData *rel, Record *record){
+//     int recordSize = tblmgmt_info.sizeOfRec;
+//     int recPageNum = record->id.page;  // record will be searched at this page number
+//     int recSlotNum = record->id.slot;  // record will be searched at this slot
+//     int blockfactor = tblmgmt_info.blkFctr;
+//     BM_PageHandle *page = &tblmgmt_info.pageHandle;
+//     BM_BufferPool *bm = &tblmgmt_info.bufferPool;
+//     if(pinPage(bm,page,recPageNum) != RC_OK){
+//         RC_message = "Pin page failed  ";
+//         return RC_PIN_PAGE_FAILED;
+//     }
+//     int recordOffet = recSlotNum * recordSize;
+//     memcpy(page->data+recordOffet, record->data, recordSize-1);  // recordSize-1 bacause last value in record is $. which is set by us
+//     if( markDirty(bm,page)!=RC_OK){
+//         RC_message = "Page Mark Dirty Failed";
+//         return RC_MARK_DIRTY_FAILED;
+//     }
+//     if(  unpinPage(bm,page)!=RC_OK){
+//         RC_message = "Unpin Page failed Failed";
+//         return RC_UNPIN_PAGE_FAILED;
+//     }
+//     return RC_OK;
+// }
+
 RC updateRecord (RM_TableData *rel, Record *record){
-    int recordSize = tblmgmt_info.sizeOfRec;
-    int recPageNum = record->id.page;  // record will be searched at this page number
-    int recSlotNum = record->id.slot;  // record will be searched at this slot
-    int blockfactor = tblmgmt_info.blkFctr;
-    BM_PageHandle *page = &tblmgmt_info.pageHandle;
-    BM_BufferPool *bm = &tblmgmt_info.bufferPool;
-
-    if(pinPage(bm,page,recPageNum) != RC_OK){
-        RC_message = "Pin page failed  ";
-        return RC_PIN_PAGE_FAILED;
-    }
-    int recordOffet = recSlotNum * recordSize;
-
-    memcpy(page->data+recordOffet, record->data, recordSize-1);  // recordSize-1 bacause last value in record is $. which is set by us
-
-    if( markDirty(bm,page)!=RC_OK){
-        RC_message = "Page Mark Dirty Failed";
-        return RC_MARK_DIRTY_FAILED;
-    }
-
-    if(  unpinPage(bm,page)!=RC_OK){
-        RC_message = "Unpin Page failed Failed";
-        return RC_UNPIN_PAGE_FAILED;
-    }
-
+    if (!record)    return RC_ERROR;
+    if (!rel)   return RC_ERROR;
+    pinPage(&tblmgmt_info.bufferPool,&tblmgmt_info.pageHandle,(*record).id.page);
+    memcpy(tblmgmt_info.pageHandle.data+((*record).id.slot * tblmgmt_info.sizeOfRec), (*record).data, tblmgmt_info.sizeOfRec-1);  
+    // recordSize-1 bacause last value in record is $. which is set by us
+    markDirty(&tblmgmt_info.bufferPool,&tblmgmt_info.pageHandle);
+    unpinPage(&tblmgmt_info.bufferPool,&tblmgmt_info.pageHandle);
+    printf("Update record: Successed ...\n");
     return RC_OK;
 }
-/***
- *This method will return record at perticular page number and slot number mention in input parameter id
- *
- * @param rel : contais all imformation related to schema
- * @param id :  contains page number and slot id which is to be read
- * @param record : record data will be pointed by record
- * @return RC code
- */
+/*
+    This method will return record at perticular page number and slot number mention in input parameter id
+*/
+// RC getRecord (RM_TableData *rel, RID id, Record *record){
+//     int recordSize = tblmgmt_info.sizeOfRec;
+//     int recPageNum = id.page;  // record will be searched at this page number
+//     int recSlotNum = id.slot;  // record will be searched at this slot
+//     int blockfactor = tblmgmt_info.blkFctr;
+//     BM_PageHandle *page = &tblmgmt_info.pageHandle;
+//     BM_BufferPool *bm = &tblmgmt_info.bufferPool;
+//     if(pinPage(bm,page,recPageNum) != RC_OK){
+//         RC_message = "Pin page failed  ";
+//         return RC_PIN_PAGE_FAILED;
+//     }
+//     int recordOffet = recSlotNum * recordSize;  // this will give starting point of record. remember last value in record is '$' replce it wil
+//     memcpy(record->data, page->data+recordOffet, recordSize); // case of error check boundry condition also check for reccord->data size
+//     record->data[recordSize-1]='\0';
+//     record->id.page = recPageNum;
+//     record->id.slot = recSlotNum;
+//     if(  unpinPage(bm,page)!=RC_OK){
+//         RC_message = "Unpin Page failed Failed";
+//         return RC_UNPIN_PAGE_FAILED;
+//     }
+//     return RC_OK;
+// }
+
+
 RC getRecord (RM_TableData *rel, RID id, Record *record){
-
-
-    int recordSize = tblmgmt_info.sizeOfRec;
-    int recPageNum = id.page;  // record will be searched at this page number
-    int recSlotNum = id.slot;  // record will be searched at this slot
-    int blockfactor = tblmgmt_info.blkFctr;
-    BM_PageHandle *page = &tblmgmt_info.pageHandle;
-    BM_BufferPool *bm = &tblmgmt_info.bufferPool;
-
-    if(pinPage(bm,page,recPageNum) != RC_OK){
-        RC_message = "Pin page failed  ";
-        return RC_PIN_PAGE_FAILED;
-    }
-
-    int recordOffet = recSlotNum * recordSize;  // this will give starting point of record. remember last value in record is '$' replce it wil
-    memcpy(record->data, page->data+recordOffet, recordSize); // case of error check boundry condition also check for reccord->data size
-    record->data[recordSize-1]='\0';
-
-    record->id.page = recPageNum;
-    record->id.slot = recSlotNum;
-
-
-    if(  unpinPage(bm,page)!=RC_OK){
-        RC_message = "Unpin Page failed Failed";
-        return RC_UNPIN_PAGE_FAILED;
-    }
-
+    if (!record)    return RC_ERROR;
+    if (!rel)   return RC_ERROR;
+    pinPage(&tblmgmt_info.bufferPool, &tblmgmt_info.pageHandle,id.page);
+    memcpy((*record).data, tblmgmt_info.pageHandle.data+ (id.slot * tblmgmt_info.sizeOfRec) , tblmgmt_info.sizeOfRec); 
+    // case of error check boundry condition also check for reccord->data size
+    (*record).data[tblmgmt_info.sizeOfRec-1]='\0';
+    (*record).id.page = id.page;
+    (*record).id.slot = id.slot;
+    unpinPage(&tblmgmt_info.bufferPool, &tblmgmt_info.pageHandle);
+    printf("Get Record: Successed ...\n");
     return RC_OK;
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+////////////////////////////////////////////
 
 // scans
 /***
@@ -585,10 +590,10 @@ Schema *createSchema (int numAttr, char **attrNames, DataType *dataTypes, int *t
 
     Schema *schema = (Schema * ) malloc(sizeof(Schema));
 
-    if(schema ==((Schema *)0)) {
-        RC_message = "dynamic memory allocation failed | schema";
-        return RC_MELLOC_MEM_ALLOC_FAILED;
-    }
+    // if(schema ==((Schema *)0)) {
+    //     RC_message = "dynamic memory allocation failed | schema";
+    //     return RC_MELLOC_MEM_ALLOC_FAILED;
+    // }
 
     schema->numAttr = numAttr;
     schema->attrNames = attrNames;
@@ -806,26 +811,30 @@ void schemaReadFromFile(RM_TableData *rel, BM_PageHandle *h){
     char metadata[PAGE_SIZE];
     strcpy(metadata,h->data);
 
-    char *schema_name=readSchemaName(&metadata);
+    char *schema_name=readSchemaName(metadata);
+
 
 
     int totalAtribute = readTotalAttributes(&metadata);
 
 
-    char *atrMetadata =readAttributeMeataData(&metadata);
+    char *atrMetadata =readAttributeMeataData(metadata);
 
 
-    int totalKeyAtr = readTotalKeyAttr(&metadata);
+
+    int totalKeyAtr = readTotalKeyAttr(metadata);
 
 
-    char *atrKeydt = readAttributeKeyData(&metadata);
+
+    char *atrKeydt = readAttributeKeyData(metadata);
 
 
-    char *freeVacSlot = readFreePageSlotData(&metadata);
+    char *freeVacSlot = readFreePageSlotData(metadata);
 
 
     char **names=getAtrributesNames(atrMetadata,totalAtribute);
-    DataType *dt =   getAtributesDtType(atrMetadata,totalAtribute);
+    DataType *dt =   (DataType*) getAtributesDtType(atrMetadata,totalAtribute);
+
     int *sizes = getAtributeSize(atrMetadata,totalAtribute);
     int *keys =   extractKeyDt(atrKeydt,totalKeyAtr);
     int *pageSolt = extractFirstFreePageSlot(freeVacSlot);
@@ -863,6 +872,7 @@ void schemaReadFromFile(RM_TableData *rel, BM_PageHandle *h){
     rel->name =cpSchemaName;
 
     tblmgmt_info.rm_tbl_data = rel;
+
     tblmgmt_info.sizeOfRec =  getRecordSize(rel->schema) + 1;   //
     tblmgmt_info.blkFctr = (PAGE_SIZE / tblmgmt_info.sizeOfRec);
     tblmgmt_info.firstFreeLoc.page =pageSolt[0];
@@ -1187,9 +1197,11 @@ void printRecord(char *record, int recLen){
 void printTableInfoDetails(TableMgmt_info *tab_info){
     printf(" \n Printing record details ");
     printf(" \n table name [%s]",tab_info->rm_tbl_data->name);
+
     printf(" \n Size of record [%d]",tab_info->sizeOfRec);
     printf(" \n total Records in page (blkftr) [%d]",tab_info->blkFctr);
     printf(" \n total Attributes in table [%d]",tab_info->rm_tbl_data->schema->numAttr);
+
     printf(" \n total Records in table [%d]",tab_info->totalRecordInTable);
     printf(" \n next available page and slot [%d:%d]",tab_info->firstFreeLoc.page,tab_info->firstFreeLoc.slot);
 }
