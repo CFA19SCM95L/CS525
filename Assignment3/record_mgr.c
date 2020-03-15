@@ -73,6 +73,23 @@ RC shutdownRecordManager (){
 //     return RC_OK;
 // }
 
+
+
+void write(char data[1024], Schema *schema, char *name) {
+    sprintf(data,"%s|",name);
+    sprintf(data+ strlen(data),"%d[",(*schema).numAttr);
+    for(int i=0; i<(*schema).numAttr; i++){
+        sprintf(data+ strlen(data),"(%s:%d~%d)",(*schema).attrNames[i],(*schema).dataTypes[i],(*schema).typeLength[i]);
+    }
+    sprintf(data+ strlen(data),"]%d{",(*schema).keySize);
+    for(int i=0; i<(*schema).keySize; i++){
+        sprintf(data+ strlen(data),"%d",(*schema).keyAttrs[i]);
+        if(i<((*schema).keySize-1))
+            strcat(data,":");
+    }
+    strcat(data,"}");
+}
+
 RC createTable (char *name, Schema *schema){
     if (!schema)    return RC_ERROR;
     if (!name)      return RC_ERROR;
@@ -80,19 +97,7 @@ RC createTable (char *name, Schema *schema){
     ph = (SM_PageHandle) malloc(PAGE_SIZE);
     char tableMetadata[PAGE_SIZE];
     memset(tableMetadata,'\0',PAGE_SIZE);
-    strcat(tableMetadata, name);
-    strcat(tableMetadata, "|");
-    sprintf(tableMetadata+ strlen(tableMetadata),"%d[",(*schema).numAttr);
-    for(int i=0; i<(*schema).numAttr; i++){
-        sprintf(tableMetadata+ strlen(tableMetadata),"(%s:%d~%d)",(*schema).attrNames[i],(*schema).dataTypes[i],(*schema).typeLength[i]);
-    }
-    sprintf(tableMetadata+ strlen(tableMetadata),"]%d{",(*schema).keySize);
-    for(int i=0; i<(*schema).keySize; i++){
-        sprintf(tableMetadata+ strlen(tableMetadata),"%d",(*schema).keyAttrs[i]);
-        if(i<((*schema).keySize-1))
-            strcat(tableMetadata,":");
-    }
-    strcat(tableMetadata,"}");
+    write(tableMetadata, schema, name);
     tblmgmt_info.firstFreeLoc.page =1;
     tblmgmt_info.firstFreeLoc.slot =0;
     tblmgmt_info.totalRecordInTable =0;
@@ -106,6 +111,7 @@ RC createTable (char *name, Schema *schema){
     printf("Create Table: Successed ...\n");
     return RC_OK;
 }
+    
 /*
     Using buffer manager we pin page 0 and read data from page 0. Data parsed by schemaReadFromFile method and value initialied in rel
 */
@@ -183,21 +189,12 @@ RC openTable (RM_TableData *rel, char *name){
 //     return RC_OK;
 // }
 
+
 RC closeTable (RM_TableData *rel){
     if (!rel)   return RC_ERROR;
     char tableMetadata[PAGE_SIZE];
     memset(tableMetadata,'\0',PAGE_SIZE);
-    sprintf(tableMetadata,"%s|",(*rel).name);
-    sprintf(tableMetadata+ strlen(tableMetadata),"%d[",(*(*rel).schema).numAttr);
-    for(int i=0; i<(*(*rel).schema).numAttr; i++){
-        sprintf(tableMetadata+ strlen(tableMetadata),"(%s:%d~%d)",(*(*rel).schema).attrNames[i],(*(*rel).schema).dataTypes[i],(*(*rel).schema).typeLength[i]);
-    }
-    sprintf(tableMetadata+ strlen(tableMetadata),"]%d{",(*(*rel).schema).keySize);
-    for(int i=0; i<(*(*rel).schema).keySize; i++){
-        sprintf(tableMetadata+ strlen(tableMetadata),"%d",(*(*rel).schema).keyAttrs[i]);
-        if(i<((*(*rel).schema).keySize-1))  strcat(tableMetadata,":");
-    }
-    strcat(tableMetadata,"}");
+    write(tableMetadata, (*rel).schema, (*rel).name);
     sprintf(tableMetadata+ strlen(tableMetadata),"$%d:%d$",tblmgmt_info.firstFreeLoc.page,tblmgmt_info.firstFreeLoc.slot);
     sprintf(tableMetadata+ strlen(tableMetadata),"?%d?",tblmgmt_info.totalRecordInTable);
     pinPage(&tblmgmt_info.bufferPool,&tblmgmt_info.pageHandle,0);
@@ -208,6 +205,8 @@ RC closeTable (RM_TableData *rel){
     printf("Close Table: Successed ...\n");
     return RC_OK;
 }
+
+
 /*
     Will delete the table and all data associated with it.This mwthod will call destroyPageFile of storage manager
 */
@@ -379,10 +378,9 @@ RC deleteRecord (RM_TableData *rel, RID id){
 
 RC updateRecord (RM_TableData *rel, Record *record){
     if (!record)    return RC_ERROR;
-    if (!rel)   return RC_ERROR;
+    if (!rel)       return RC_ERROR;
     pinPage(&tblmgmt_info.bufferPool,&tblmgmt_info.pageHandle,(*record).id.page);
     memcpy(tblmgmt_info.pageHandle.data+((*record).id.slot * tblmgmt_info.sizeOfRec), (*record).data, tblmgmt_info.sizeOfRec-1);  
-    // recordSize-1 bacause last value in record is $. which is set by us
     markDirty(&tblmgmt_info.bufferPool,&tblmgmt_info.pageHandle);
     unpinPage(&tblmgmt_info.bufferPool,&tblmgmt_info.pageHandle);
     printf("Update record: Successed ...\n");
@@ -420,7 +418,6 @@ RC getRecord (RM_TableData *rel, RID id, Record *record){
     if (!rel)   return RC_ERROR;
     pinPage(&tblmgmt_info.bufferPool, &tblmgmt_info.pageHandle,id.page);
     memcpy((*record).data, tblmgmt_info.pageHandle.data+ (id.slot * tblmgmt_info.sizeOfRec) , tblmgmt_info.sizeOfRec); 
-    // case of error check boundry condition also check for reccord->data size
     (*record).data[tblmgmt_info.sizeOfRec-1]='\0';
     (*record).id.page = id.page;
     (*record).id.slot = id.slot;
