@@ -5,7 +5,7 @@ test_expr : $(file) test_expr.o
 	$(Compiler) -o test_expr $(file) test_expr.o
 	rm *.o
 
-test : $(base) test_assign3_1.o
+test : $(file) test_assign3_1.o
 	$(Compiler) -o test $(file) test_assign3_1.o
 	rm *.o
 
