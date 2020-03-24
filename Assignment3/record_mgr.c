@@ -21,13 +21,14 @@ SM_PageHandle ph;
 */
 RC initRecordManager (void *mgmtData){
     initStorageManager();
-    printf("Init Record Manage: Successed ...\n"); 
+    printf("Init Record Manager: Successed ...\n"); 
 	return RC_OK;
 }
 /*
     free the memory associated with buffer manager
 */
-RC shutdownRecordManager (){  
+RC shutdownRecordManager (){ 
+    shutdownBufferPool(&tblmgmt_info.bufferPool); 
     free(ph);
     printf("Shut down Record Manager: Successed ...\n");
     return RC_OK;
@@ -76,7 +77,16 @@ RC shutdownRecordManager (){
 
 
 void write(char data[1024], Schema *schema, char *name) {
-    sprintf(data,"%s|",name);
+    if (!schema) {
+        printf("Write: Failed ...\n");
+        return;
+    }    
+    if (!name) {
+        printf("Write: Failed ...\n");
+        return;
+    }  
+    strcat(data, name);
+    strcat(data, "|");
     sprintf(data+ strlen(data),"%d[",(*schema).numAttr);
     for(int i=0; i<(*schema).numAttr; i++){
         sprintf(data+ strlen(data),"(%s:%d~%d)",(*schema).attrNames[i],(*schema).dataTypes[i],(*schema).typeLength[i]);
@@ -91,10 +101,16 @@ void write(char data[1024], Schema *schema, char *name) {
 }
 
 RC createTable (char *name, Schema *schema){
-    if (!schema)    return RC_ERROR;
-    if (!name)      return RC_ERROR;
+    if (!schema) {
+        printf("Create Table: Failed ...\n");
+        return RC_ERROR;
+    }    
+    if (!name) {
+        printf("Create Table: Failed ...\n");
+        return RC_ERROR;
+    }      
     createPageFile(name);
-    ph = (SM_PageHandle) malloc(PAGE_SIZE);
+    ph = malloc(PAGE_SIZE);
     char tableMetadata[PAGE_SIZE];
     memset(tableMetadata,'\0',PAGE_SIZE);
     write(tableMetadata, schema, name);
@@ -133,10 +149,16 @@ RC createTable (char *name, Schema *schema){
 // }
 
 RC openTable (RM_TableData *rel, char *name){
-    if (!name)  return RC_ERROR;
-    if (!rel)   return RC_ERROR;
+    if (!name) {
+        printf("Open Table: Failed ...\n");
+        return RC_ERROR;
+    }
+    if (!rel) {
+        printf("Open Table: Failed ...\n");
+        return RC_ERROR;
+    }
     
-    ph = (SM_PageHandle) malloc(PAGE_SIZE);
+    ph = malloc(PAGE_SIZE);
     initBufferPool(&tblmgmt_info.bufferPool, name, 3, RS_FIFO, NULL);
     pinPage(&tblmgmt_info.bufferPool, &tblmgmt_info.pageHandle, 0);
     schemaReadFromFile(rel, &tblmgmt_info.pageHandle);
@@ -191,7 +213,10 @@ RC openTable (RM_TableData *rel, char *name){
 
 
 RC closeTable (RM_TableData *rel){
-    if (!rel)   return RC_ERROR;
+    if (!rel) {
+        printf("Close Table: Failed ...\n");
+        return RC_ERROR;
+    }
     char tableMetadata[PAGE_SIZE];
     memset(tableMetadata,'\0',PAGE_SIZE);
     write(tableMetadata, (*rel).schema, (*rel).name);
@@ -224,7 +249,10 @@ RC closeTable (RM_TableData *rel){
 // }
 
 RC deleteTable (char *name){
-    if (!name)  return RC_ERROR;
+    if (!name) {
+        printf("Delete Table: Failed ...\n");
+        return RC_ERROR;
+    }
     destroyPageFile(name);
     printf("Delete Table: Successed ...\n");
     return RC_OK;
@@ -237,7 +265,10 @@ RC deleteTable (char *name){
 // }
 
 int getNumTuples (RM_TableData *rel){
-    if (!rel)   return RC_ERROR;
+    if (!rel) {
+        printf("Get NumTuples: Failed ...\n");
+        return RC_ERROR;
+    }
     printf("Get NumTuples: Successed ...\n");
     return tblmgmt_info.totalRecordInTable;
 }
@@ -292,8 +323,14 @@ int getNumTuples (RM_TableData *rel){
 // }
 
 RC insertRecord (RM_TableData *rel, Record *record){
-    if (!record)    return RC_ERROR;
-    if (!rel)   return RC_ERROR;
+    if (!record) {
+        printf("Insert Record: Failed ...\n");
+        return RC_ERROR;
+    }   
+    if (!rel) {
+        printf("Insert Record: Failed ...\n");
+        return RC_ERROR;
+    }
     pinPage(&tblmgmt_info.bufferPool,&tblmgmt_info.pageHandle,tblmgmt_info.firstFreeLoc.page);
     (*record).data[tblmgmt_info.sizeOfRec-1]='$';
     memcpy(tblmgmt_info.pageHandle.data+(tblmgmt_info.firstFreeLoc.slot * tblmgmt_info.sizeOfRec), (*record).data, tblmgmt_info.sizeOfRec);
@@ -340,7 +377,10 @@ RC insertRecord (RM_TableData *rel, Record *record){
 // }
 
 RC deleteRecord (RM_TableData *rel, RID id){
-    if (!rel)   return RC_ERROR;
+    if (!rel) {
+        printf("Delete Record: Failed ...\n");
+        return RC_ERROR;
+    }  
     pinPage(&tblmgmt_info.bufferPool,&tblmgmt_info.pageHandle,id.page);
     memset(tblmgmt_info.pageHandle.data+(id.slot * tblmgmt_info.sizeOfRec), '\0', tblmgmt_info.sizeOfRec);  // setting values to null
     tblmgmt_info.totalRecordInTable--;  // reducing number of record by 1 after deleting record
@@ -377,8 +417,14 @@ RC deleteRecord (RM_TableData *rel, RID id){
 // }
 
 RC updateRecord (RM_TableData *rel, Record *record){
-    if (!record)    return RC_ERROR;
-    if (!rel)       return RC_ERROR;
+    if (!record) {
+        printf("Update Recorded: Failed ...\n");
+        return RC_ERROR;
+    }    
+    if (!rel) {
+        printf("Update Recorded: Failed ...\n");
+        return RC_ERROR;
+    }      
     pinPage(&tblmgmt_info.bufferPool,&tblmgmt_info.pageHandle,(*record).id.page);
     memcpy(tblmgmt_info.pageHandle.data+((*record).id.slot * tblmgmt_info.sizeOfRec), (*record).data, tblmgmt_info.sizeOfRec-1);  
     markDirty(&tblmgmt_info.bufferPool,&tblmgmt_info.pageHandle);
@@ -414,8 +460,14 @@ RC updateRecord (RM_TableData *rel, Record *record){
 
 
 RC getRecord (RM_TableData *rel, RID id, Record *record){
-    if (!record)    return RC_ERROR;
-    if (!rel)   return RC_ERROR;
+    if (!record) {
+        printf("Get Record: Failed ...\n");
+        return RC_ERROR;
+    }    
+    if (!rel) {
+        printf("Get Record: Failed ...\n");
+        return RC_ERROR;
+    }   
     pinPage(&tblmgmt_info.bufferPool, &tblmgmt_info.pageHandle,id.page);
     memcpy((*record).data, tblmgmt_info.pageHandle.data+ (id.slot * tblmgmt_info.sizeOfRec) , tblmgmt_info.sizeOfRec); 
     (*record).data[tblmgmt_info.sizeOfRec-1]='\0';
@@ -586,12 +638,6 @@ int getRecordSize (Schema *schema){
 Schema *createSchema (int numAttr, char **attrNames, DataType *dataTypes, int *typeLength, int keySize, int *keys){
 
     Schema *schema = (Schema * ) malloc(sizeof(Schema));
-
-    // if(schema ==((Schema *)0)) {
-    //     RC_message = "dynamic memory allocation failed | schema";
-    //     return RC_MELLOC_MEM_ALLOC_FAILED;
-    // }
-
     schema->numAttr = numAttr;
     schema->attrNames = attrNames;
     schema->dataTypes = dataTypes;
