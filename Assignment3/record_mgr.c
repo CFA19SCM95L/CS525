@@ -659,12 +659,10 @@ RC closeScan (RM_ScanHandle *scan){
 int getRecordSize (Schema *schema){
     int recordSize = 0;
     for(int i=0; i<schema->numAttr; i++){
-        switch(schema->dataTypes[i]){
-            case DT_INT: recordSize += sizeof(int); break;
-            case DT_STRING: recordSize += (sizeof(char) * schema->typeLength[i]); break;
-            case DT_FLOAT: recordSize += sizeof(float); break;
-            case DT_BOOL: recordSize += sizeof(bool); break;
-        }
+        if(schema->dataTypes[i] == DT_INT) recordSize += sizeof(int);
+        else if(schema->dataTypes[i] == DT_STRING) recordSize += (sizeof(char) * schema->typeLength[i]);
+        else if(schema->dataTypes[i] == DT_FLOAT) recordSize += sizeof(float);
+        else recordSize += sizeof(bool);
     }
     return recordSize;
 }
@@ -852,23 +850,20 @@ RC freeRecord (Record *record){
 RC getAttr (Record *record, Schema *schema, int attrNum, Value **value){
     int offset = getAtrOffsetInRec(schema,attrNum);
     char *subString ;
-    switch (schema->dataTypes[attrNum]) {
-        case DT_INT :
-            memcpy(subString= malloc(sizeof(int)+1), record->data+offset, sizeof(int));
-            subString[sizeof(int)]='\0';          // set last byet to '\0'
-            MAKE_VALUE(*value, DT_INT, atoi(subString));
-            break;
-        case DT_STRING :
-            memcpy(subString= malloc((sizeof(char)*schema->typeLength[attrNum])+1), record->data+offset, sizeof(char)*schema->typeLength[attrNum]);
-            subString[sizeof(char)*schema->typeLength[attrNum]]='\0';       // set last byet to '\0'
-            MAKE_STRING_VALUE(*value, subString);
-            break;
-        case DT_FLOAT :
-            memcpy(subString= malloc(sizeof(float)+1), record->data+offset, sizeof(float));
-            subString[sizeof(float)]='\0';          // set last byet to '\0'
-            MAKE_VALUE(*value, DT_FLOAT, atof(subString));
-            break;
-        case DT_BOOL : memcpy(subString= malloc(sizeof(bool)+1), record->data+offset, sizeof(bool)); MAKE_VALUE(*value, DT_BOOL, 0);
+    if (schema->dataTypes[attrNum] == DT_INT){
+        memcpy(subString= malloc(sizeof(int)+1), record->data+offset, sizeof(int));
+        subString[sizeof(int)]='\0';          // set last byet to '\0'
+        MAKE_VALUE(*value, DT_INT, atoi(subString));
+    } else if (schema->dataTypes[attrNum] == DT_STRING){
+        memcpy(subString= malloc((sizeof(char)*schema->typeLength[attrNum])+1), record->data+offset, sizeof(char)*schema->typeLength[attrNum]);
+        subString[sizeof(char)*schema->typeLength[attrNum]]='\0';       // set last byet to '\0'
+        MAKE_STRING_VALUE(*value, subString);
+    } else if (schema->dataTypes[attrNum] == DT_FLOAT){
+        memcpy(subString= malloc(sizeof(float)+1), record->data+offset, sizeof(float));
+        subString[sizeof(float)]='\0';          // set last byet to '\0'
+        MAKE_VALUE(*value, DT_FLOAT, atof(subString));
+    } else if (schema->dataTypes[attrNum] == DT_BOOL){
+        memcpy(subString= malloc(sizeof(bool)+1), record->data+offset, sizeof(bool)); MAKE_VALUE(*value, DT_BOOL, 0);
     }
     free(subString);
     return RC_OK;
@@ -926,13 +921,10 @@ RC setAttr (Record *record, Schema *schema, int attrNum, Value *value){
     char intStr[sizeof(int)+1];
     char intStrTemp[sizeof(int)+1];
     memset(intStr,'0',sizeof(char)*4);
-    switch(schema->dataTypes[attrNum])
-    {
-        case DT_INT: strRepInt(3,value->v.intV,intStr); sprintf(record->data + getAtrOffsetInRec(schema,attrNum), "%s", intStr); break;
-        case DT_STRING: sprintf(record->data + getAtrOffsetInRec(schema,attrNum), "%s", value->v.stringV); break;
-        case DT_FLOAT: sprintf(record->data + getAtrOffsetInRec(schema,attrNum),"%f" ,value->v.floatV); break;
-        case DT_BOOL:strRepInt(1,value->v.boolV,intStr); sprintf(record->data + getAtrOffsetInRec(schema,attrNum),"%s" ,intStr); break;
-    }
+    if (schema->dataTypes[attrNum] == DT_INT) {strRepInt(3,value->v.intV,intStr); sprintf(record->data + getAtrOffsetInRec(schema,attrNum), "%s", intStr);}
+    else if (schema->dataTypes[attrNum] == DT_STRING) {sprintf(record->data + getAtrOffsetInRec(schema,attrNum), "%s", value->v.stringV);}
+    else if (schema->dataTypes[attrNum] == DT_FLOAT) {sprintf(record->data + getAtrOffsetInRec(schema,attrNum),"%f" ,value->v.floatV);}
+    else if (schema->dataTypes[attrNum] == DT_BOOL) {strRepInt(1,value->v.boolV,intStr); sprintf(record->data + getAtrOffsetInRec(schema,attrNum),"%s" ,intStr);}
     return RC_OK;
 }
 
@@ -1539,12 +1531,10 @@ int extractTotalRecordsTab(char *scmData){
 int getAtrOffsetInRec(Schema *schema, int atrnum){
     int offset=0;
     for(int pos=0; pos<atrnum; pos++){
-        switch(schema->dataTypes[pos]){
-            case DT_INT: offset = offset + sizeof(int); break;
-            case DT_STRING: offset = offset + (sizeof(char) *  schema->typeLength[pos]); break;
-            case DT_FLOAT: offset = offset + sizeof(float); break;
-            case DT_BOOL: offset = offset  + sizeof(bool);
-        }
+        if(schema->dataTypes[pos]== DT_INT) offset = offset + sizeof(int);
+        else if(schema->dataTypes[pos]==DT_STRING) offset = offset + (sizeof(char) *  schema->typeLength[pos]);
+        else if(schema->dataTypes[pos]==DT_FLOAT) offset = offset + sizeof(float);
+        else if(schema->dataTypes[pos]==DT_BOOL) offset = offset  + sizeof(bool);
     }
     return offset;
 }
@@ -1585,5 +1575,3 @@ void printPageData(char *pageData){
     printf("\n exiting ");
     printf("\n exiting ");
 }
-
-
