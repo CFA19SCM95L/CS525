@@ -26,6 +26,9 @@ typedef struct RM_SCAN_MGMT{
 
 
 RC RC_ERROR = -1;
+// RC RC_ILLEGAL_PARAMETER = -1;
+// RC RC_IM_NODE_NOT_EXIST = -1;
+// RC RC_IM_TREE_NOT_EXIST = -1;
 
 void schemaReadFromFile();
 char * readSchemaName();

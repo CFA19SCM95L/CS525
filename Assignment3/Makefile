@@ -36,7 +36,6 @@ test_assign3_1.o : test_assign3_1.c
 record_mgr.o : record_mgr.c
 	$(Compiler) -c record_mgr.c -I .
 
-.PHONY : clean
 clean :
 	rm test_expr test
 

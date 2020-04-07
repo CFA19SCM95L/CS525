@@ -5,15 +5,12 @@
 #include "expr.h"
 #include "tables.h"
 
-
-
 // Bookkeeping for scans
 typedef struct RM_ScanHandle
 {
 	RM_TableData *rel;
 	void *mgmtData;
 } RM_ScanHandle;
-
 
 // table and manager
 extern RC initRecordManager (void *mgmtData);

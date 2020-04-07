@@ -8,8 +8,8 @@
 // Bookkeeping for scans
 typedef struct RM_ScanHandle
 {
-  RM_TableData *rel;
-  void *mgmtData;
+	RM_TableData *rel;
+	void *mgmtData;
 } RM_ScanHandle;
 
 // table and manager
