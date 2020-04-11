@@ -5,12 +5,8 @@
 #include "storage_mgr.h"
 #include "btree_mgr.h"
 #include "dberror.h"
-#include "tables.h"
-#include "expr.h"
+#include "assist2.h"
 
-
-RC RC_IM_NODE_NOT_EXIST = -1;
-RC  RC_IM_TREE_NOT_EXIST = -1;
 
 // init and shutdown index manager
 RC initIndexManager (void *mgmtData){
@@ -109,9 +105,9 @@ RC openBtree (BTreeHandle **tree, char *idxId){
 RC closeBtree (BTreeHandle *tree){
     //it's OK if the tree is NUll
     printf("Closing the B-tree...\n");
-    shutdownBufferPool(tree->bp);
-    free(tree->bp);
-    free(tree->fh);
+    shutdownBufferPool((*tree).bp);
+    free((*tree).bp);
+    free((*tree).fh);
     free(tree);
     printf("Closed the B-tree sccessfully.\n");
     return RC_OK;
@@ -124,550 +120,498 @@ RC deleteBtree (char *idxId){
     }
     return destroyPageFile(idxId);
 }
-// access information about a b-tree
-RC getNumNodes (BTreeHandle *tree, int *result)
-{
-    if(tree == NULL){
-        printf("Fail to Get the Number of Nodes.\n");
-        return RC_ILLEGAL_PARAMETER;
-    }
+
+//////////////////////////////////////////////////////
+
+
+// access b-tree
+RC getNumNodes (BTreeHandle *tree, int *result) {
     *result=(*tree).nodeNum;
-    printf("Got the Number of Nodes Sccessfully.\n");
+    printf("GetNumNodes: Successed...\n");
     return RC_OK;
 }
 
-RC getNumEntries (BTreeHandle *tree, int *result)
-{
-    if(tree == NULL){
-        printf("Fail to Get the Number of Entries.\n");
-        return RC_ILLEGAL_PARAMETER;
-    }
+
+RC getNumEntries (BTreeHandle *tree, int *result) {
     *result=(*tree).entryNum;
-    printf("Got the Number of Entries Sccessfully.\n");
+    printf("GetNumEntries: Successed...\n");
     return RC_OK;
 }
 
-RC getKeyType (BTreeHandle *tree, DataType *result)
-{
-    if(tree == NULL){
-        printf("Fail to Get the KeyType.\n");
-        return RC_ILLEGAL_PARAMETER;
-    }
+
+RC getKeyType (BTreeHandle *tree, DataType *result) {
     *result=(*tree).keyType;
-    printf("Got the KeyType Sccessfully.\n");
+    printf("GetKeyType: Successed...\n");
     return RC_OK;
 }
 // index access
-/*These functions are used to find, insert, and delete keys in/from a given B+-tree.*/
-
-/*We added a method to help us get the tree node which we want to make some change to it.
-  We also added a struct: BT_Node to show the property of the B+-tree's node */
-RC getTreeNode (BTreeHandle *tree, int nodeNum, BT_Node **node)
-{
-    if(tree == NULL){
-        printf("Fail to Find the Key.\n");
-        return RC_ILLEGAL_PARAMETER;
+RC getTreeNode (BTreeHandle *tree, int nodeNum, BT_Node **node) {
+    BM_PageHandle *ph = malloc(32);
+    if(*node == NULL){                   
+        *node = malloc(32);
     }
-
-    BM_PageHandle *ph = (BM_PageHandle *)calloc(1, sizeof(BM_PageHandle));
-    bool isNullNode = false;
-    RC isSuccess = RC_OK;
-    RC result = RC_OK;
-
-    //if *node is NULL, we intialize the node.
-    if(*node == NULL){
-        isNullNode = true;
-        *node = (BT_Node *)calloc(1, sizeof(BT_Node));
-    }
-
-    isSuccess = pinPage(tree->bp, ph, nodeNum);
-    if(isSuccess == RC_OK){
-        //pinPage is successful
-        //check the node is vaild or not
-        memcpy(&(*node)->isValid, ph->data, sizeof(int));
-        if((*node)->isValid == 0){ //the node is not valid
-            unpinPage(tree->bp, ph);
-            result = RC_IM_NODE_NOT_EXIST; //可替换
-        }else{
-            //when failed to pin page
-            memcpy(&(*node)->parentNode, ph->data + sizeof(int), sizeof(int));
-            memcpy(&(*node)->current_node, ph->data + 2 * sizeof(int) , sizeof(int));
-            memcpy(&(*node)->size, ph->data + 3 * sizeof(int), sizeof(int));
-            memcpy(&(*node)->isLeafNode, ph->data + 4 * sizeof(int), sizeof(int));
-            if(isNullNode || (*node)->element == NULL){
-                (*node)->element = (BT_Element *)malloc(sizeof(BT_Element) * (tree->n+2) * 2);
+    int isNullNode = *node == NULL?1:0;
+    if(pinPage((*tree).bp, ph, nodeNum) == RC_OK){          //check vaild
+        memcpy(&(*(*node)).isValid, (*ph).data, 4);
+        if((*(*node)).isValid == 0){                        //not valid
+            if (unpinPage((*tree).bp, ph) != RC_OK) {
+                return -1;
             }
-            memcpy((*node)->element, ph->data + 5*sizeof(int),
-                   sizeof(BT_Element) * (*node)->size);
-            result = unpinPage(tree->bp, ph);
+        }else{                                                  //pin page
+            memcpy(&(*(*node)).parentNode, (*ph).data + 4, 4);
+            memcpy(&(*(*node)).current_node, (*ph).data + 8 , 4);
+            memcpy(&(*(*node)).size, (*ph).data + 12, 4);
+            memcpy(&(*(*node)).isLeafNode, (*ph).data + 16, 4);
+            if(isNullNode == 1 || (*(*node)).element == NULL){
+                (*(*node)).element = calloc(8 , ((*tree).n+2) * 2);
+            }
+            memcpy((*(*node)).element, (*ph).data + 20, 8 * (*(*node)).size);
+            if (unpinPage((*tree).bp, ph) != RC_OK) {
+                return -1;
+            }
         }
     }
-    free(ph);
-    printf("getTreeNode() Sccessfully.\n");
-    return result;
-}
-//we added the freeTreeNode() method to concise the code
-RC freeTreeNode (BT_Node *node){
-    if(node == NULL){
-        printf("The node is null already.\n");
-        return RC_ILLEGAL_PARAMETER;
-    }
-    
-    if(node->element != NULL){//we need to free the element space
-        free(node->element);
-        node->element = NULL;
-    }
-    free(node);
-    node = NULL;
-    printf("The node is free now.\n");
     return RC_OK;
 }
-
-//findKey return the RID for the entry with the search key in the b-tree.
-RC findKey (BTreeHandle *tree, Value *key, RID *result)
-{
-    if(tree == NULL || key == NULL){
-        printf("Fail to Find the Key.\n");
-        return RC_ILLEGAL_PARAMETER;
-    }
-    
-    BT_Node *node = NULL; //we need to set new node = null
-    /*Pointers to intermediate nodes should be \
-     represented by the page number of the page \
-     the node is stored in. */
-    int num = tree->rootPage;
-    while(true)
-    {
-        getTreeNode (tree,num, &node);
-        //when node is a non-leaf node.
-        if((node->isLeafNode) == 0){
-            int i=1;
-            if((node->element + 1)->node > key->v.intV)
-            {
-                num = node->element->node;
-            }
-            else
-            {
-                while( i < node->size )
-                {
-                    if((node->element + i)->node <= key->v.intV)
-                    {
-                        num = (node->element + i + 1)->node;
-                    }
-                    i += 2;
-                }
-            }
+//return RID for the entry.
+RC findKey (BTreeHandle *tree, Value *key, RID *result) {  
+    BT_Node *node = NULL; 
+    int num = (*tree).rootPage;
+    while(true) {
+        if (getTreeNode (tree, num, &node)!= RC_OK) {
+            return -1;
         }
-        //when node is a leaf node
-        if((node->isLeafNode) == 1)
-        {
+        if(((*node).isLeafNode) != 0){   //leaf node     
             int i = 1;
-            while(i < node->size)
-            {
-                if((node->element + i)->node == key->v.intV)
-                {
-                    result->slot=(node->element + i-1)->id.slot;
-                    result->page=(node->element + i-1)->id.page;
-                    
-                    freeTreeNode(node);
-                    printf("findKey() Sccessfully.\n");
+            int flag = i < (*node).size ? 1:0;
+            while (flag) {
+                if((*((*node).element + i)).node == (*key).v.intV) {
+                    (*result).slot=(*((*node).element + i-1)).id.slot;
+                    (*result).page=(*((*node).element + i-1)).id.page;
+                    printf("FindKey: Sccessed...\n");
                     return RC_OK;
                 }
-                i += 2;
+                i+=2;
+                if (i >= (*node).size) {
+                    break;
+                }
             }
-            
-            freeTreeNode(node);
-            return RC_IM_KEY_NOT_FOUND;
-        }
-         
+            return RC_IM_KEY_NOT_FOUND;  
+        } else {                    //non-leaf node
+            num = (*((*node).element + 1)).node > (*key).v.intV?(*(*node).element).node: num;
+            if ((*((*node).element + 1)).node <= (*key).v.intV) {
+                int i = 1;
+                int flag =  i < (*node).size ? 1:0;
+                while (flag) {
+                    if((*((*node).element + i)).node <= (*key).v.intV) {
+                        num = (*((*node).element + i + 1)).node;
+                    }
+                    i+=2;
+                    if (i >= (*node).size) {
+                        break;
+                    }
+                }
+            }          
+        }        
     }
 }
 
-//We added a method to set node into tree
+
 RC setTreeNode (BTreeHandle *tree, int nodeNum, BT_Node *node){
-    if(tree == NULL || nodeNum <= 0){
-        printf("Fail to Find the Key.\n");
-        return RC_ILLEGAL_PARAMETER;
+    BM_PageHandle *ph = calloc(32, 1);
+    int con;
+    int con2;
+    if (con = ensureCapacity(nodeNum+1, (*tree).fh)!=RC_OK) {
+        return -1;
+    }    
+    if (con2 =pinPage((*tree).bp, ph, nodeNum)!=RC_OK) {
+        return -1;
     }
-    BM_PageHandle *ph = (BM_PageHandle *)malloc(sizeof(BM_PageHandle));
-    if(ensureCapacity(nodeNum+1, tree->fh) == RC_OK
-        && pinPage(tree->bp, ph, nodeNum) == RC_OK){
-        memcpy(ph->data, &node->isValid, sizeof(int));
-        memcpy(ph->data + sizeof(int), &node->parentNode, sizeof(int));
-        memcpy(ph->data + 2*sizeof(int), &node->current_node, sizeof(int));
-        memcpy(ph->data + 3*sizeof(int), &node->size, sizeof(int));
-        memcpy(ph->data + 4*sizeof(int), &node->isLeafNode, sizeof(int));
-        memcpy(ph->data + 5*sizeof(int), node->element, sizeof(BT_Element) * node->size);
-        markDirty(tree->bp, ph);
-        unpinPage(tree->bp, ph);
+    if (con && con2) {
+        return -1;
     }
-    free(ph);
-    printf("setTreeNode() Sccessfully.\n");
+    memcpy((*ph).data, &(*node).isValid, 4);
+    memcpy((*ph).data + 4, &(*node).parentNode, 4);
+    memcpy((*ph).data + 8, &(*node).current_node, 4);
+    memcpy((*ph).data + 12, &(*node).size, 4);
+    memcpy((*ph).data + 16, &(*node).isLeafNode, 4);
+    memcpy((*ph).data + 20, (*node).element, 8 * (*node).size);
+    if (markDirty((*tree).bp, ph)!= RC_OK) {
+        return -1;
+    }
+    if (unpinPage((*tree).bp, ph) != RC_OK) {
+        return -1;
+    }
+    printf("SetTreeNode: Successed...\n");
     return RC_OK;
 }
 
-//insertKey inserts a new key and record pointer pair into the index.
-RC insertKey (BTreeHandle *tree, Value *key, RID rid){
-    BT_Element *element = (BT_Element *)malloc(2 * (tree->n+2) * sizeof(BT_Element));
-    BT_Node *node = NULL;
-    BT_Node *newNode = NULL, *rootNode = NULL;
-    // If the B-tree is null, we need to create a root key.
-    if(tree->entryNum==0 || tree->rootPage==-1 ||
-       getTreeNode(tree, tree->rootPage, &node) != RC_OK){
-        node = (BT_Node *)calloc(1, sizeof(BT_Node));
-        node->isLeafNode = 1;
-        node->size = 2;
-        node->isValid = 1;
-        node->parentNode = -1;
-        node->current_node = tree->fh->totalNumPages;
-        appendEmptyBlock(tree->fh);
-        node->element = (BT_Element *)malloc(sizeof(BT_Element) * 2 * (tree->n+2));
-        (*(node->element)).id = rid;
-        (*(node->element+1)).node = key->v.intV;
-        tree->nodeNum++;
-        tree->rootPage = node->current_node;
-        setTreeNode(tree, node->current_node, node);
-    } else {
-        // Find the target node to insert
-        int j = 0;
-        while(node->isLeafNode == 0){//non-leaf node
-            for(int i=1; ; i+=2){
-                if(i>=node->size || (*(node->element+i)).node > key->v.intV){
-                    j = (*(node->element+i-1)).node;
-                    getTreeNode(tree, j, &node);
-                    break;
+//insertKey seperate into 3 methods since it's too long.
+int insertKey3(BTreeHandle *tree, Value *key, RID rid,BT_Node *node,BT_Element *element) {
+    int intKey = (*key).v.intV;
+    int left;
+    int right;
+    while(true) {
+        // Insert rid and key into node
+        int i = 1;
+        int flag = i < (*node).size+4 ? 1: 0; 
+        while (flag) {
+            if((*((*node).element+i)).node > intKey || i>=(*node).size){
+                if(i > 1 && (*((*node).element+i-2)).node == intKey){
+                    return RC_IM_KEY_ALREADY_EXISTS;
+                }
+                if((*node).isLeafNode != 1){ //non-leaf
+                    memcpy(element, (*node).element, 8 * (i-1));
+                    (*(element+i)).node = intKey;
+                    (*(element+i+1)).node = right;
+                    (*(element+i-1)).node = left;
+                    memcpy(element + i+2, (*node).element+ i, 8 * ((*node).size-i));         
+                } else {                    //leaf
+                    memcpy(element, (*node).element, 8 * (i-1));
+                    (*(element+i-1)).id = rid;
+                    (*(element+i)).node = intKey;
+                    memcpy(element + i+1, (*node).element+ i-1, 8 * ((*node).size+1-i));
+                }
+                (*node).size+=2;
+                memcpy((*node).element, element, 8 * (*node).size);
+                break;
+            }    
+            i+=2; 
+            if (i >= (*node).size+4) {
+                break;
+            }           
+        }
+        if((*node).size < 2 * ((*tree).n+1)){
+            if (setTreeNode(tree, (*node).current_node, node)!=RC_OK) {
+                return -1;
+            }
+            break;
+        } else {            //overflow
+            BT_Node *newNode = NULL;
+            if(newNode== NULL){
+                newNode = calloc(32, 1);
+                (*newNode).element = malloc(2*((*tree).n+2) * 8);
+            }                
+            (*newNode).isValid = 1;
+            (*newNode).isLeafNode = (*node).isLeafNode;
+            (*newNode).size = (*node).size/4*2 + (*node).size%2;
+            (*newNode).current_node = (*(*tree).fh).totalNumPages;
+            (*newNode).parentNode = (*node).parentNode;
+            if (appendEmptyBlock((*tree).fh) != RC_OK) {
+                return -1;
+            }
+            memcpy((*newNode).element, (*node).element + (*node).size - (*newNode).size, 8*(*newNode).size);
+            (*tree).nodeNum++;
+            (*node).size = ((*node).size/2 - (*node).size/4)*2 + 1;
+            (*((*node).element+(*node).size-1)).node = (*newNode).current_node;
+            if((*node).parentNode == -1){
+                BT_Node *rootNode = NULL;
+                left = (*node).current_node;
+                if(rootNode == NULL){       //create a parent node
+                    rootNode = calloc(32, 1);
+                    (*rootNode).parentNode = -1;
+                    (*rootNode).isLeafNode = 0;
+                    (*rootNode).isValid = 1;
+                    (*rootNode).size = 3;
+                    (*rootNode).element = calloc(8 , 3);
+                }
+                (*rootNode).current_node = (*(*tree).fh).totalNumPages;
+                if (appendEmptyBlock((*tree).fh)!= RC_OK) {
+                    return -1;
+                }                    
+                (*((*rootNode).element)).node = left;
+                (*((*rootNode).element+1)).node = (*((*newNode).element+1)).node;
+                (*((*rootNode).element+2)).node = (*newNode).current_node;
+                (*tree).rootPage = (*rootNode).current_node;
+                (*node).parentNode = (*rootNode).current_node;
+                (*tree).nodeNum++;
+                (*newNode).parentNode = (*rootNode).current_node;  
+                if (setTreeNode(tree, (*node).current_node, node)!=RC_OK) {
+                    return -1;
+                }
+                if (setTreeNode(tree, (*newNode).current_node, newNode)!=RC_OK) {
+                    return -1;
+                }
+                if (setTreeNode(tree, (*rootNode).current_node, rootNode)!=RC_OK) {
+                    return -1;
+                }
+                break;
+            } else { //node has parent node
+                if (setTreeNode(tree, (*node).current_node, node) != RC_OK) {
+                    return -1;
+                }
+                if (setTreeNode(tree, (*newNode).current_node, newNode) != RC_OK) {
+                    return -1;
+                }
+                intKey = (*((*newNode).element+1)).node;
+                right = (*newNode).current_node;
+                left = (*node).current_node;
+                if (getTreeNode(tree, (*node).parentNode, &node)!= RC_OK) {
+                    return -1;
                 }
             }
         }
-
-        int intKey = key->v.intV;
-        int left, right;
-        while(true) {
-            // Insert rid and key into node
-            for(int i=1; i < node->size+4; i+=2){
-                //It should return error code RC_IM_KEY_ALREADY_EXISTS
-                //if this key is already stored in the b-tree.
-                if((*(node->element+i)).node > intKey || i>=node->size){
-                    if(i > 1 && (*(node->element+i-2)).node == intKey){
-                        freeTreeNode(node);
-                        return RC_IM_KEY_ALREADY_EXISTS;
-                    }
-                    if(node->isLeafNode == 1){ //leaf node
-                        memcpy(element, node->element, sizeof(BT_Element) * (i-1));
-                        (*(element+i-1)).id = rid;
-                        (*(element+i)).node = intKey;
-                        memcpy(element + i+1, node->element+ i-1, sizeof(BT_Element) * (node->size+1-i));
-                        
-                    } else {//non-leaf node
-                        memcpy(element, node->element, sizeof(BT_Element) * (i-1));
-                        (*(element+i)).node = intKey;
-                        (*(element+i-1)).node = left;
-                        (*(element+i+1)).node = right;
-                        memcpy(element + i+2, node->element+ i, sizeof(BT_Element) * (node->size-i));
-                    }
-                    node->size+=2;
-                    memcpy(node->element, element, sizeof(BT_Element) * node->size);
-                    break;
+    }
+    return 1;
+}
+int insertKey2(BTreeHandle *tree, Value *key, RID rid) {
+    BT_Element *element = calloc(2 * ((*tree).n+2) , 8);
+    BT_Node *node = NULL;
+    if (getTreeNode(tree, (*tree).rootPage, &node)!= RC_OK) {
+        return -1;
+    }
+    // Find the target node to insert
+    int j = 0;
+    int flag = (*node).isLeafNode == 0? 1:0;
+    while(flag){//non-leaf node
+        int i = 1;
+        while (true) {
+            if(i>=(*node).size || (*((*node).element+i)).node > (*key).v.intV){
+                j = (*((*node).element+i-1)).node;
+                if (getTreeNode(tree, j, &node)!= RC_OK) {
+                    return -1;
                 }
-            }
-
-            if(node->size < 2 * (tree->n+1)){
-                setTreeNode(tree, node->current_node, node);
                 break;
             }
-            else {/*when node overflow, we need to follow the conventions*/
-                if(newNode== NULL){
-                    newNode = (BT_Node *)malloc(sizeof(BT_Node));
-                    newNode->element = (BT_Element *)calloc(2*(tree->n+2), sizeof(BT_Element));
-                }
-                
-                newNode->isValid = 1;
-                newNode->isLeafNode = node->isLeafNode;
-                newNode->size = node->size/4*2 + node->size%2;
-                newNode->current_node = tree->fh->totalNumPages;
-                newNode->parentNode = node->parentNode;
-                appendEmptyBlock(tree->fh);
-                memcpy(newNode->element, node->element + node->size - newNode->size,
-                    sizeof(BT_Element)*newNode->size);
-                node->size = (node->size/2 - node->size/4)*2 + 1;
-                (*(node->element+node->size-1)).node = newNode->current_node;
-
-                tree->nodeNum++;
-                if(node->parentNode == -1){
-                    left = node->current_node;
-                    if(rootNode == NULL){//create a parent node
-                        rootNode = (BT_Node *)malloc(sizeof(BT_Node));
-                        rootNode->isLeafNode = 0;
-                        rootNode->isValid = 1;
-                        rootNode->parentNode = -1;
-                        rootNode->size = 3;
-                        rootNode->element = (BT_Element *)malloc(sizeof(BT_Element) * 3);
-                    }
-
-                    rootNode->current_node = tree->fh->totalNumPages;
-                    appendEmptyBlock(tree->fh);
-                    
-                    (*(rootNode->element)).node = left;
-                    (*(rootNode->element+1)).node = (*(newNode->element+1)).node;
-                    (*(rootNode->element+2)).node = newNode->current_node;
-
-                    tree->rootPage = rootNode->current_node;
-                    node->parentNode = rootNode->current_node;
-                    tree->nodeNum++;
-                    newNode->parentNode = rootNode->current_node;
-                    
-                    setTreeNode(tree, node->current_node, node);
-                    setTreeNode(tree, newNode->current_node, newNode);
-                    setTreeNode(tree, rootNode->current_node, rootNode);
-                    break;
-                }
-                else { //node has parent node
-                    setTreeNode(tree, node->current_node, node);
-                    setTreeNode(tree, newNode->current_node, newNode);
-                    intKey = (*(newNode->element+1)).node;
-                    left = node->current_node;
-                    right = newNode->current_node;
-                    getTreeNode(tree, node->parentNode, &node);
-                }
-            }
+            i+=2;
+        }
+        if ((*node).isLeafNode != 0) {
+            break;
         }
     }
-    tree->entryNum++;
-    free(element);
-    freeTreeNode(node);
-    freeTreeNode(newNode);
-    freeTreeNode(rootNode);
-    printf("Insert Key Done.\n");
+    if (insertKey3(tree,key,rid,node,element) != 1) {
+        return -1;
+    }
+}
+
+RC insertKey (BTreeHandle *tree, Value *key, RID rid){
+    BT_Element *element = calloc(2 * ((*tree).n+2) , 8);
+    BT_Node *node = NULL;
+    if((*tree).entryNum==0 || (*tree).rootPage==-1 ){    //create root.
+        node = malloc(32);
+        (*node).current_node = (*(*tree).fh).totalNumPages;
+        (*node).size = 2; 
+        (*node).isLeafNode = 1;
+        (*node).isValid = 1;
+        (*node).parentNode = -1;
+        if (appendEmptyBlock((*tree).fh) != RC_OK) {
+            return -1;
+        }
+        (*node).element = calloc(8 , 2 * ((*tree).n+2));
+        (*((*node).element)).id = rid;
+        (*((*node).element+1)).node = (*key).v.intV;
+        (*tree).nodeNum++;
+        (*tree).rootPage = (*node).current_node;
+        if (setTreeNode(tree, (*node).current_node, node) != RC_OK) {
+            return -1;
+        }
+    } else {
+        if (insertKey2(tree, key, rid) != 1) {
+            return -1;
+        }
+    }
+    (*tree).entryNum++;
+    printf("InsertKey: Successed...\n");
     return RC_OK;
 }
 
-//deleteKey removes a key (and corresponding record pointer) from the index.
-//For deletion it is up to the client whether this is handled as an error.
+//deleteKey seperate into two methods
+int removekey(int i , BT_Node *node, BTreeHandle *tree) {
+    BT_Node *childNode = NULL;
+    int f = i<(*node).size? 1:0;
+    while(f){
+        (*((*node).element+i-1)).id = (*((*node).element+i+1)).id;
+        (*((*node).element+i++)).node = (*((*node).element+i+2)).node;
+        if (++i>=(*node).size) {
+            break;
+        }
+    }
+    (*node).size -= 2;
+    (*tree).entryNum--;
+    while((*node).size<2 && (*node).current_node!=0) {    //Exist in the parent node
+        if (getTreeNode(tree, (*node).current_node, &childNode)!= RC_OK) {
+            return -1;
+        }
+        (*childNode).isValid = 0;
+        if (getTreeNode(tree, (*node).parentNode, &node)!= RC_OK) {
+            return -1;
+        }
+        int k = 0;
+        int cond = k<(*node).size? 1:0; 
+        while (cond) {
+            if((*((*node).element+k++)).node == (*childNode).current_node){
+                break;
+            }
+            if (++k>=(*node).size) {
+                break;
+            }
+        }
+        if(k != 0) {
+            k--;
+            int cond1 = (*childNode).size == 1?1:0;
+            int cond2 = (*childNode).isLeafNode == 1?1:0;
+            BT_Node *siblingNode = NULL;
+            if(cond1 && cond2) {       // Sibling point to next
+                if (getTreeNode(tree, (*((*node).element+k-1)).node, &siblingNode)!= RC_OK) {
+                    return -1;
+                }
+                (*((*node).element+(*siblingNode).size-1)).node = (*(*childNode).element).node;
+                if (setTreeNode(tree, (*siblingNode).current_node, siblingNode) != RC_OK) {
+                    return -1;
+                }
+            }
+            int f = k+2<(*node).size? 1:0;
+            while (f) {
+                (*((*node).element+k)).node = (*((*node).element+k+2)).node;
+                if (++k+2>=(*node).size) {
+                    break;
+                }
+            }
+        } else {
+            int f = k+2<(*node).size? 1:0;
+            while (f) {
+                (*((*node).element+k)).node = (*((*node).element+k+2)).node;
+                if (++k+2>=(*node).size) {
+                    break;
+                }
+            }
+        }
+        (*tree).nodeNum--;
+        (*node).size -= 2;
+        if (setTreeNode(tree, (*childNode).current_node, childNode) != RC_OK) {
+            return -1;
+        }
+    }
+    if (setTreeNode(tree, (*node).current_node, node)!= RC_OK) {
+        return -1;
+    }
+}
+
+
 RC deleteKey (BTreeHandle *tree, Value *key){
-    //If we cannot find the key in tree or the tree is null
-    BT_Node *node = NULL;
-    if(tree->rootPage == -1 || getTreeNode(tree, tree->rootPage, &node) != RC_OK){
-        freeTreeNode(node);
-        printf("The Key Is Not Found.\n");
+    if((*tree).rootPage == -1 ){
         return RC_IM_KEY_NOT_FOUND;
     }
-    // Step 1: Find the key node
-    int i;
-    while(node->isLeafNode == 0) //non-leaf node
-    {
-        for(i=1;;i+=2)
-        {
-            if(i>=node->size || (*(node->element+i)).node > key->v.intV)
-                {
-                getTreeNode(tree, (*(node->element+i-1)).node, &node);
-                break;
-                }
-        }
+    BT_Node *node = NULL;
+    if (getTreeNode(tree, (*tree).rootPage, &node)!= RC_OK) {
+        return -1;
     }
-    // Step 2: Find the key
-    for(i=1; i<node->size; i+=2)
-    {
-        if((*(node->element + i)).node > key->v.intV)
-        {
+    //Find node
+    int j = 1;
+    int flag = (*node).isLeafNode == 0 ? 1:0; 
+    while(flag) { //non-leaf node
+        if(j>=(*node).size || (*((*node).element+j)).node > (*key).v.intV){
+            if (getTreeNode(tree, (*((*node).element+j-1)).node, &node)!= RC_OK) {
+                return -1;
+            }
+            break;
+        } 
+        if ((*node).isLeafNode != 0) {
+            break;
+        }   
+        j+=2;    
+    }
+    // Find key
+    int i = 1;
+    flag = i<(*node).size? 1:0; 
+    while (flag) {
+        if((*((*node).element + i)).node > (*key).v.intV){
             break;//cannot find the key
         }
-        else
-        {
-                printf("Error");
+        i+=2;
+        if (i>=(*node).size) {
+            break;
         }
     }
     i -= 2;
     
-    if((*(node->element+i)).node != key->v.intV)
-    {       // If the key to be found does not exist
-        freeTreeNode(node);
-        printf("The Key Is Not Found.\n");
+    if((*((*node).element+i)).node != (*key).v.intV) {       //not exist
         return RC_IM_KEY_NOT_FOUND;
     }
-
-    // Step 3: Delete the key
-    BT_Node *childNode = NULL, *siblingNode = NULL;
-    while(i<node->size){
-        (*(node->element+i-1)).id = (*(node->element+i+1)).id;
-        (*(node->element+i)).node = (*(node->element+i+2)).node;
-        i += 2;
-    }
-    node->size -= 2;
-    tree->entryNum--;
-    //If the key is exist in the parent node, we need to remove it.
-    while(node->size<2 && node->current_node!=0)
-        {
-        getTreeNode(tree, node->current_node, &childNode);
-        childNode->isValid = 0;
-        getTreeNode(tree, node->parentNode, &node);
-        for(i=0; i<node->size; i+=2)
-            {
-                if((*(node->element+i)).node == childNode->current_node)
-                {
-                    break;
-                }
-            }
-        if(i == 0)
-        {
-            for(;i+2<node->size;i++)
-            {
-                (*(node->element+i)).node = (*(node->element+i+2)).node;
-            }
-        }
-        else
-            {
-            i--;
-            if(childNode->size == 1 && childNode->isLeafNode == 1)
-            {       // Sibling point to next
-                getTreeNode(tree, (*(node->element+i-1)).node, &siblingNode);
-                (*(node->element+siblingNode->size-1)).node = (*childNode->element).node;
-                setTreeNode(tree, siblingNode->current_node, siblingNode);
-            }
-            for(;i+2<node->size;i++)
-            {
-                (*(node->element+i)).node = (*(node->element+i+2)).node;
-            }
-        }
-        tree->nodeNum--;
-        node->size -= 2;
-        setTreeNode(tree, childNode->current_node, childNode);
-    }
-    setTreeNode(tree, node->current_node, node);
-    freeTreeNode(node);
-    freeTreeNode(childNode);
-    freeTreeNode(siblingNode);
-    printf("Deleted Key Sccessfully.\n");
+    removekey(i, node, tree);
+    printf("DeleteKey: Successed...\n");
     return RC_OK;
 }
 
-/*clients can scan through all entries of a BTree \
- *in sort order using the openTreeScan, nextEntry, and closeTreeScan methods. */
-RC openTreeScan (BTreeHandle *tree, BT_ScanHandle **handle){
-    if(tree == NULL){
-        printf("Fail to Open Tree Scan.\n");
-        return RC_ILLEGAL_PARAMETER;
-    }
-    
-    *handle = (BT_ScanHandle*)calloc(1, sizeof(BT_ScanHandle));
-    (*handle)->tree = tree;
-    int pageNum = tree->rootPage;
+// scan by using nextEntry, and closeTreeScan method
+RC openTreeScan (BTreeHandle *tree, BT_ScanHandle **handle){ 
+    *handle = malloc( 32);
+    (*(*handle)).tree = tree;
     BT_Node *node = NULL;
-    getTreeNode (tree, pageNum, &node);
-    //when the node is non-leaf node
-    while(node->isLeafNode == 0){
-         pageNum = node->element->node;
-         getTreeNode(tree, pageNum, &node);
-     }
-    //when the node is leaf node
-    (*handle)->currentNode = node->current_node;
-    (*handle)->currentPos = 0;
-    
-    getNumEntries(tree, &pageNum);
-    (*handle)->count = pageNum;
-     
-    freeTreeNode(node);
-    printf("openTreeScan() Sccessfully.\n");
+    int isLeaf = 0;
+    if (getTreeNode (tree, (*tree).rootPage, &node)!= RC_OK) {
+        return -1;
+    }
+    int flag = (*node).isLeafNode == 0 ? 1:0; 
+    while(flag){    //nonleaf node
+        if (getTreeNode(tree,  (*(*node).element).node, &node)!= RC_OK) {
+            return -1;
+        }
+        if ((*node).isLeafNode != 0) {
+            isLeaf = 1;
+            break;
+        }
+    }
+    if (isLeaf) {    //leaf node
+        (*(*handle)).currentPos = 0;
+        (*(*handle)).currentNode = (*node).current_node;
+        if (getNumEntries(tree, & (*(*node).element).node) != RC_OK) {
+            return -1;
+        }
+        (*(*handle)).count =  (*(*node).element).node;
+    } else {
+        return -1;
+    }
+    printf("OpenTreeScan: Successed.\n");
     return RC_OK;
 }
 
-/*The nextEntry method should return RC_IM_NO_MORE_ENTRIES
- *if there are no more entries to be returned
- (the scan has gone beyond the last entry of the B+-tree). */
-RC nextEntry (BT_ScanHandle *handle, RID *result)
-{
-    if(handle == NULL){
-        printf("Fail to Open Tree Scan.\n");
-        return RC_ILLEGAL_PARAMETER;
-    }
-    BT_Node *node=NULL;
-    //there are no more entries to be returned
-    if(handle->count <= 0){
-        freeTreeNode(node);
-        printf("There are no more entries to be returned.\n");
+RC nextEntry (BT_ScanHandle *handle, RID *result) {
+    if((*handle).count <= 0){           
         return RC_IM_NO_MORE_ENTRIES;
     }
-    
-    getTreeNode (handle->tree, handle->currentNode, &node);
-    result->slot = (node->element+handle->currentPos)->id.slot;
-    result->page = (node->element+handle->currentPos)->id.page;
-    handle->currentPos = handle->currentPos + 2;
-    handle->count--;
-    
-    if(handle->currentPos == node->size - 1 && handle->count != 0)
-    {
-        handle->currentNode = (node->element+handle->currentPos)->node;
-        handle->currentPos=0;
+    BT_Node *node=NULL;
+    if (getTreeNode ((*handle).tree, (*handle).currentNode, &node)!= RC_OK) {
+        return -1;
     }
-
-    freeTreeNode(node);
-    printf("nextEntry() Sccessfully.\n");
+    (*handle).count--;
+    (*result).page = (*((*node).element+(*handle).currentPos)).id.page;
+    (*result).slot = (*((*node).element+(*handle).currentPos)).id.slot;
+    (*handle).currentPos += 2;
+    int cond = (*handle).currentPos == (*node).size - 1 && (*handle).count ? 1:0;
+    (*handle).currentNode = cond?(*((*node).element+(*handle).currentPos)).node:(*handle).currentNode;
+    (*handle).currentPos = cond ?  0: (*handle).currentPos;
+    printf("NextEntry: Successed...\n");
     return RC_OK;
 }
 
-RC closeTreeScan (BT_ScanHandle *handle)
-{
-    if(handle == NULL){
-        printf("The handle is already null.\n");
-        return RC_OK;
-    }
-    
-    free(handle);
-    printf("The closeTreeScan() Sccessfully.\n");
+RC closeTreeScan (BT_ScanHandle *handle) {
+    handle = NULL;
+    printf("CloseTreeScan: Successed...\n");
     return RC_OK;
 }
 
-// debug and test functions
-//printTree is used to create a string representation of a b-tree.
+
 char *printTree (BTreeHandle *tree){
-    if(tree == NULL){
-           printf("The tree is null.\n");
-           return RC_ILLEGAL_PARAMETER;
-    }
-    
-    BT_Node *node = NULL;
     int print[100];
-    
-    if((*tree).rootPage == -1)
-    {
-        printf("The Tree is Null.\n");
-        return RC_IM_TREE_NOT_EXIST;
+    if((*tree).rootPage == -1) {
+        return -1;
     }
-    
-    printf("");
-    int num = 0, size = 1;
+    int size = 1;
     print[0] = (*tree).rootPage;
-    while (num != size)
-    {
-        getTreeNode(tree, print[num], &node);
-        printf("(%d)[", print[num]);
-        if ((*node).isLeafNode == 1) //leaf node
-        {
-            for (int i=0; i<(*node).size; i++){
-                if (i%2 == 0 && i != node->size - 1)//n is even
-                    {
-                        printf("%d.%d ", (*((*node).element + i)).id.page,
-                               (*((*node).element + i)).id.slot);
-                    } else {
-                        printf("%d ", (*((*node).element+i)).node);
-                    }
-            }
+    for (int num = 0; num != size; num++) {
+        BT_Node *node = NULL;
+        if (getTreeNode(tree, print[num], &node)!= RC_OK) {
+            return -1;
         }
-        //non-leaf node
-        else{
+        if ((*node).isLeafNode != 1) {
            for (int i=0; i<(*node).size; i++){
-               printf("%d ", (*((*node).element + i)).node);
-               if ( i%2 == 0 )
-               {
-                   print[size] = (*((*node).element + i)).node;
-                   size++;
+               if ( i%2 == 0 ) {
+                   print[size++] = (*((*node).element + i)).node;
                }
            }
         }
-        num++;
-        printf("]\n");
     }
-    freeTreeNode(node);
-    printf("---------------- DONE ----------------");
 }
 
 

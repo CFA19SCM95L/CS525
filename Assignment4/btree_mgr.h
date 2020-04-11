@@ -5,17 +5,6 @@
 #include "tables.h"
 
 ////structure for accessing btrees
-// typedef struct BTreeHandle {
-//   DataType keyType;
-//   char *idxId;
-//   void *mgmtData;
-// } BTreeHandle;
-
-// typedef struct BT_ScanHandle {
-//   BTreeHandle *tree;
-//   void *mgmtData;
-// } BT_ScanHandle;
-
 typedef struct BTreeHandle {
     DataType keyType;
     char *idxId;
@@ -28,21 +17,6 @@ typedef struct BTreeHandle {
     int rootPage;
 } BTreeHandle;
 
-typedef union BT_Element {
-  int node;
-  RID id;
-} BT_Element;
-
-//show the property of the B+-tree's node
-typedef struct BT_Node {
-    int isLeafNode;//False=0, TRUE=1;
-    int parentNode;
-    int current_node;
-    int isValid;
-    int size;
-    BT_Element *element;
-} BT_Node;
-
 typedef struct BT_ScanHandle {
   BTreeHandle *tree;
   void *mgmtData;
@@ -50,8 +24,6 @@ typedef struct BT_ScanHandle {
     int currentNode;
     int currentPos;
 } BT_ScanHandle;
-
-
 
 
 // init and shutdown index manager
